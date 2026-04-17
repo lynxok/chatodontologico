@@ -38,7 +38,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false, // Temporarily disable for debugging local assets if needed
+      sandbox: false, // Disable sandbox for maximum compatibility on some Windows systems
+      webSecurity: true,
     },
     width: Math.min(1200, screenWidth),
     height: Math.min(800, screenHeight),
@@ -91,7 +92,10 @@ app.on('activate', () => {
 app.whenReady().then(() => {
   createWindow();
   
+  /* 
+  Temporarily disable auto-updater during diagnostic phase
   if (app.isPackaged) {
     startUpdateCheck();
   }
+  */
 });
