@@ -1,6 +1,6 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, screen } from 'electron';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, format } from 'node:url';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
@@ -24,30 +24,42 @@ process.env.VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 let win: BrowserWindow | null;
 
 function createWindow() {
+  const { width: screenWidth, height: screenHeight } = screen.getPrimaryDisplay().workAreaSize;
+
   win = new BrowserWindow({
     icon: path.join(publicPath, 'logo ls.jpeg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
+      webSecurity: false, // Temporarily disable for debugging local assets if needed
     },
-    width: 1200,
-    height: 800,
+    width: Math.min(1200, screenWidth),
+    height: Math.min(800, screenHeight),
     title: 'LS Odontología - Chat',
   });
 
   // Remove menu bar for premium feel
   win.setMenuBarVisibility(false);
 
+  // ALWAYS OPEN DEVTOOLS IN THIS DEBUG VERSION
+  win.webContents.openDevTools();
+
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
     // In production, load the index.html from dist
     const indexPath = path.join(process.env.DIST, 'index.html');
-    win.loadFile(indexPath).catch(err => {
-      console.error('Failed to load index.html:', err);
-      // Fallback for some bundle structures
-      win?.loadURL(`file://${path.resolve(process.env.DIST, 'index.html')}`);
+    
+    log.info('Attempting to load index from:', indexPath);
+
+    win.loadURL(format({
+      pathname: indexPath,
+      protocol: 'file:',
+      slashes: true
+    })).catch(err => {
+      log.error('Failed to load via URL format:', err);
+      win?.loadFile(indexPath).catch(e => log.error('Final fallback failed:', e));
     });
   }
 }
