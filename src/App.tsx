@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { Login } from './components/Login';
 import { ChatModule } from './components/chat/ChatModule';
-import { Settings, LogOut, Shield } from 'lucide-react';
+import { AdminPanel } from './components/admin/AdminPanel';
+import { Settings, LogOut, Shield, MessageSquare } from 'lucide-react';
 import { Toaster } from 'sonner';
 
 function App() {
   const [user, setUser] = useState<{ role: string } | null>(null);
+  const [view, setView] = useState<'chat' | 'admin'>('chat');
 
   const handleLogin = (role: string) => {
     setUser({ role });
+    setView(role === 'admin' ? 'admin' : 'chat');
   };
 
   const handleLogout = () => {
     setUser(null);
+    setView('chat');
   };
 
   if (!user) {
@@ -52,8 +56,10 @@ function App() {
                 EN LÍNEA
               </p>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-tiffany-green flex items-center justify-center text-white shadow-lg shadow-tiffany-green/20">
-              {isAdmin ? <Shield size={20} /> : <Settings size={20} />}
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg transition-all ${
+              view === 'admin' ? 'bg-text-primary' : 'bg-tiffany-green'
+            }`}>
+              {isAdmin && view === 'admin' ? <Shield size={20} /> : <Settings size={20} />}
             </div>
           </div>
           
@@ -71,15 +77,23 @@ function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 overflow-hidden flex bg-medical-white">
-        <ChatModule currentUser={user} />
+        {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} />}
       </main>
 
-      {/* Admin Quick Action (Only for SuperAdmin) */}
+      {/* Admin Toggle (Only for SuperAdmin) */}
       {isAdmin && (
         <div className="absolute bottom-6 right-6 z-50">
-          <button className="premium-button flex items-center gap-2 shadow-2xl">
-            <Shield size={20} />
-            Configurar Clínica
+          <button 
+            onClick={() => setView(view === 'chat' ? 'admin' : 'chat')}
+            className={`premium-button flex items-center gap-2 shadow-2xl transition-all ${
+              view === 'admin' ? 'bg-tiffany-green' : 'bg-text-primary'
+            }`}
+          >
+            {view === 'admin' ? (
+              <><MessageSquare size={20} /> Ir al Chat</>
+            ) : (
+              <><Shield size={20} /> Configurar Clínica</>
+            )}
           </button>
         </div>
       )}

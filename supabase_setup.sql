@@ -1,14 +1,14 @@
--- LS Odontología - Supabase Foundation Script
--- Copy and paste this into the Supabase SQL Editor
+-- LS Odontología - Core Database Schema & Seeds
+-- Updated to support Admin management and Role-based Messaging
 
 -- 1. Create Profiles Table
 create table if not exists public.profiles (
-    id uuid references auth.users on delete cascade primary key,
-    username text unique,
+    id uuid default gen_random_uuid() primary key,
+    username text unique not null,
     role text check (role in ('secretary', 'consultorio', 'admin')),
     display_name text,
     avatar_url text,
-    pin text,
+    pin text not null,
     notification_tone text default 'media',
     updated_at timestamp with time zone default timezone('utc'::text, now())
 );
@@ -21,13 +21,27 @@ create policy "Public profiles are viewable by everyone" on profiles
     for select using (true);
 
 create policy "Users can update own profile" on profiles
-    for update using (auth.uid() = id);
+    for update using (
+        username = current_setting('request.jwt.claims', true)::json->>'username'
+        -- Note: For PIN-based auth, we will often use service_role or handle auth via Edge Functions
+        -- For this local-first app, we will use a simpler policy for the Admin
+    );
+
+create policy "Admins can manage all profiles" on profiles
+    for all using (
+        exists (
+            select 1 from profiles 
+            where username = current_setting('request.jwt.claims', true)::json->>'username' 
+            and role = 'admin'
+        )
+    );
 
 -- 2. Create Messages Table
 create table if not exists public.messages (
     id uuid default gen_random_uuid() primary key,
-    sender_id uuid references public.profiles(id),
-    recipient_id uuid references public.profiles(id), -- NULL for broadcast
+    sender_id text not null, -- using username for simplicity in PIN-based auth
+    recipient_id text, -- NULL for broadcast
+    sender_name text,
     content text not null,
     is_broadcast boolean default false,
     created_at timestamp with time zone default timezone('utc'::text, now())
@@ -37,19 +51,19 @@ create table if not exists public.messages (
 alter table public.messages enable row level security;
 
 -- Messages Policies
-create policy "Users can view relevant messages" on messages
-    for select using (
-        is_broadcast = true or 
-        sender_id = auth.uid() or 
-        recipient_id = auth.uid()
-    );
+create policy "Visible messages" on messages
+    for select using (true); -- In a clinic, all clinic members can usually see the flow
 
-create policy "Users can send messages" on messages
-    for insert with check (auth.uid() = sender_id);
+create policy "Allow insertion" on messages
+    for insert with check (true);
 
--- 3. Create Storage Bucket for Avatars (Optional but recommended)
--- Note: You might need to create the 'avatars' bucket manually in the Supabase Dashboard
--- and set its permissions to 'public'.
-
--- 4. Initial Seed Data (Optional)
--- You can create your users via Auth and then update their profiles.
+-- 3. Initial Seed Data
+-- Default PINs: 1234 for everyone for initial testing
+insert into public.profiles (username, role, display_name, pin)
+values 
+    ('secretary', 'secretary', 'Secretaría LYNX', '1234'),
+    ('consultorio_1', 'consultorio', 'Consultorio 1', '1234'),
+    ('consultorio_2', 'consultorio', 'Consultorio 2', '1234'),
+    ('consultorio_3', 'consultorio', 'Consultorio 3', '1234'),
+    ('admin', 'admin', 'Administrador Sistema', '1234')
+on conflict (username) do nothing;

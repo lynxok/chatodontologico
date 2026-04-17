@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Users, Search } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
 
 interface Contact {
   id: string;
-  name: string;
+  username: string;
+  display_name: string;
   role: string;
-  lastMessage?: string;
   isOnline: boolean;
+  avatar_url?: string;
 }
 
 interface ChatSidebarProps {
@@ -15,14 +17,33 @@ interface ChatSidebarProps {
   selectedId: string | 'broadcast';
 }
 
-const CONTACTS: Contact[] = [
-  { id: 'secretary', name: 'Secretaría', role: 'secretary', isOnline: true },
-  { id: 'consultorio_1', name: 'Consultorio 1', role: 'consultorio', isOnline: true },
-  { id: 'consultorio_2', name: 'Consultorio 2', role: 'consultorio', isOnline: false },
-  { id: 'consultorio_3', name: 'Consultorio 3', role: 'consultorio', isOnline: true },
-];
-
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({ currentUser, onSelectContact, selectedId }) => {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .neq('username', currentUser.username);
+
+      if (!error) {
+        setContacts(data.map(d => ({
+          id: d.id,
+          username: d.username,
+          display_name: d.display_name,
+          role: d.role,
+          isOnline: true, // Simulation for now
+          avatar_url: d.avatar_url
+        })));
+      }
+      setLoading(false);
+    };
+
+    fetchContacts();
+  }, [currentUser.username]);
+
   return (
     <div className="w-80 h-full border-r glass-panel flex flex-col">
       <div className="p-4 border-b space-y-4">
@@ -55,35 +76,43 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({ currentUser, onSelectC
           Contactos
         </p>
         
-        {CONTACTS.filter(c => c.id !== currentUser.role).map((contact) => (
-          <button
-            key={contact.id}
-            onClick={() => onSelectContact(contact)}
-            className={`w-full flex items-center p-3 rounded-xl transition-all group ${
-              selectedId === contact.id
-                ? 'bg-tiffany-soft border-l-4 border-tiffany-green' 
-                : 'hover:bg-white'
-            }`}
-          >
-            <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-medical-gray flex items-center justify-center text-tiffany-green overflow-hidden">
-                <User size={24} />
+        {loading ? (
+          <div className="py-8 text-center text-xs text-text-secondary">Cargando contactos...</div>
+        ) : (
+          contacts.map((contact) => (
+            <button
+              key={contact.username}
+              onClick={() => onSelectContact(contact)}
+              className={`w-full flex items-center p-3 rounded-xl transition-all group ${
+                selectedId === contact.id || selectedId === contact.username
+                  ? 'bg-tiffany-soft border-l-4 border-tiffany-green' 
+                  : 'hover:bg-white'
+              }`}
+            >
+              <div className="relative">
+                <div className="w-11 h-11 rounded-full bg-medical-gray flex items-center justify-center text-tiffany-green overflow-hidden">
+                  {contact.avatar_url ? (
+                    <img src={contact.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <User size={24} />
+                  )}
+                </div>
+                {contact.isOnline && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
+                )}
               </div>
-              {contact.isOnline && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full"></div>
-              )}
-            </div>
-            
-            <div className="ml-4 text-left">
-              <p className={`font-semibold text-sm ${selectedId === contact.id ? 'text-tiffany-green' : 'text-text-primary'}`}>
-                {contact.name}
-              </p>
-              <p className="text-[10px] text-text-secondary opacity-70 truncate">
-                {contact.lastMessage || 'Disponible'}
-              </p>
-            </div>
-          </button>
-        ))}
+              
+              <div className="ml-4 text-left">
+                <p className={`font-semibold text-sm ${selectedId === contact.id ? 'text-tiffany-green' : 'text-text-primary'}`}>
+                  {contact.display_name}
+                </p>
+                <p className="text-[10px] text-text-secondary opacity-70 truncate px-2 py-0.5 rounded-full bg-medical-gray/50 inline-block mt-1">
+                  {contact.role === 'secretary' ? 'RECEPCIÓN' : 'CONSULTORIO'}
+                </p>
+              </div>
+            </button>
+          ))
+        )}
       </div>
     </div>
   );

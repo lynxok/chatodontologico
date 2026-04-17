@@ -1,44 +1,63 @@
 import { toast } from 'sonner';
 
-export const playNotificationSound = (tone: 'low' | 'mid' | 'high') => {
-  const frequencies = {
-    low: 261.63, // C4
-    mid: 440.00, // A4
-    high: 880.00 // A5
-  };
+type ToneType = 'grave' | 'media' | 'aguda';
 
-  const context = new (window.AudioContext || (window as any).webkitAudioContext)();
-  const oscillator = context.createOscillator();
-  const gainNode = context.createGain();
+class SoundEngine {
+  private audioCtx: AudioContext | null = null;
 
-  oscillator.type = 'sine';
-  oscillator.frequency.setValueAtTime(frequencies[tone], context.currentTime);
-  
-  gainNode.gain.setValueAtTime(0, context.currentTime);
-  gainNode.gain.linearRampToValueAtTime(0.1, context.currentTime + 0.01);
-  gainNode.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.2);
+  private init() {
+    if (!this.audioCtx) {
+      this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+  }
 
-  oscillator.connect(gainNode);
-  gainNode.connect(context.destination);
+  play(tone: ToneType = 'media') {
+    try {
+      this.init();
+      if (!this.audioCtx) return;
 
-  oscillator.start();
-  oscillator.stop(context.currentTime + 0.2);
-};
+      const oscillator = this.audioCtx.createOscillator();
+      const gainNode = this.audioCtx.createGain();
 
-export const showNewMessageToast = (sender: string, message: string, tone: 'low' | 'mid' | 'high' = 'mid') => {
-  playNotificationSound(tone);
-  
-  toast.custom(() => (
-    <div className="bg-white border-2 border-tiffany-green p-4 rounded-2xl shadow-xl flex items-center gap-4 max-w-sm animate-in slide-in-from-right-8">
-      <div className="w-10 h-10 rounded-full bg-tiffany-soft flex items-center justify-center text-tiffany-green font-bold shrink-0">
-        {sender.charAt(0)}
-      </div>
-      <div className="flex-1 overflow-hidden">
-        <p className="text-xs font-bold text-tiffany-green uppercase tracking-wider">{sender}</p>
-        <p className="text-sm text-text-primary truncate">{message}</p>
-      </div>
-    </div>
-  ), {
-    duration: 4000,
+      oscillator.type = 'sine';
+      
+      // Set frequency based on preference
+      switch (tone) {
+        case 'grave':
+          oscillator.frequency.setValueAtTime(220, this.audioCtx.currentTime); // A3
+          break;
+        case 'aguda':
+          oscillator.frequency.setValueAtTime(880, this.audioCtx.currentTime); // A5
+          break;
+        case 'media':
+        default:
+          oscillator.frequency.setValueAtTime(440, this.audioCtx.currentTime); // A4
+          break;
+      }
+
+      gainNode.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, this.audioCtx.currentTime + 0.5);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioCtx.destination);
+
+      oscillator.start();
+      oscillator.stop(this.audioCtx.currentTime + 0.5);
+    } catch (e) {
+      console.error('Audio playback failed:', e);
+    }
+  }
+}
+
+const engine = new SoundEngine();
+
+export const notifyNewMessage = (sender: string, message: string, tone: ToneType = 'media') => {
+  // 1. Play premium audio synthesis
+  engine.play(tone);
+
+  // 2. Show glassmorphism toast
+  toast.success(`Mensaje de ${sender}`, {
+    description: message,
+    duration: 5000,
   });
 };

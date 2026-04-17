@@ -9,10 +9,12 @@ interface ChatModuleProps {
 export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser }) => {
   const [selectedContact, setSelectedContact] = useState<any | 'broadcast'>('broadcast');
 
-  // If user is not secretary, default to secretary as first contact
+  // If user is not secretary, default to broadcast or specific search
   useState(() => {
     if (currentUser.role !== 'secretary') {
-      setSelectedContact({ id: 'secretary', name: 'Secretaría', role: 'secretary' });
+      // For consultants, start with broadcast or we could fetch the secretary profile
+      // But 'broadcast' is safest for now
+      setSelectedContact('broadcast');
     }
   });
 

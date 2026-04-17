@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Volume2, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { showNewMessageToast } from '../../lib/notifications';
+import { notifyNewMessage } from '../../lib/notifications';
+import { supabase } from '../../lib/supabase';
 
 interface Message {
   id: string;
   sender_id: string;
+  sender_name: string;
   content: string;
   created_at: string;
   is_broadcast?: boolean;
@@ -19,19 +21,69 @@ interface ChatWindowProps {
 export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [tone, setTone] = useState<'low' | 'mid' | 'high'>('mid');
+  const [tone, setTone] = useState<'grave' | 'media' | 'aguda'>(currentUser.notification_tone || 'media');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const isBroadcast = target === 'broadcast';
-  const targetName = isBroadcast ? 'Difusión General' : target.name;
+  const targetName = isBroadcast ? 'Difusión General' : target.display_name;
+  const targetId = isBroadcast ? null : target.username;
 
-  // Simulate historical messages
   useEffect(() => {
-    setMessages([
-      { id: '1', sender_id: 'secretary', content: 'Hola, ¿cómo va todo?', created_at: new Date().toISOString() },
-      { id: '2', sender_id: 'consultorio_1', content: '¡Hola! Todo bien por aquí.', created_at: new Date().toISOString() },
-    ]);
-  }, [target]);
+    fetchMessages();
+    
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`chat_${targetId || 'broadcast'}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
+        (payload) => {
+          const newMessage = payload.new as Message;
+          
+          // Check if message is for this conversation
+          const isForMe = isBroadcast 
+            ? newMessage.is_broadcast 
+            : (newMessage.sender_id === targetId && newMessage.recipient_id === currentUser.username) ||
+              (newMessage.sender_id === currentUser.username && newMessage.recipient_id === targetId);
+
+          if (isForMe) {
+            setMessages((prev) => [...prev, newMessage]);
+            
+            // Notify if it's from others
+            if (newMessage.sender_id !== currentUser.username) {
+              notifyNewMessage(newMessage.sender_name, newMessage.content, tone);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [targetId, isBroadcast, currentUser.username, tone]);
+
+  const fetchMessages = async () => {
+    let query = supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true });
+
+    if (isBroadcast) {
+      query = query.eq('is_broadcast', true);
+    } else {
+      query = query.or(`and(sender_id.eq.${currentUser.username},recipient_id.eq.${targetId}),and(sender_id.eq.${targetId},recipient_id.eq.${currentUser.username})`);
+    }
+
+    const { data, error } = await query;
+    if (!error) {
+      setMessages(data || []);
+    }
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -39,25 +91,34 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
     }
   }, [messages]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputValue.trim()) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender_id: currentUser.role,
-      content: inputValue,
-      created_at: new Date().toISOString(),
-      is_broadcast: isBroadcast
-    };
-
-    setMessages([...messages, newMessage]);
+    const content = inputValue;
     setInputValue('');
-    
-    // Simulate incoming response for toast demo
-    setTimeout(() => {
-      showNewMessageToast(targetName, "¡Recibido!", tone);
-    }, 1000);
+
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        sender_id: currentUser.username,
+        sender_name: currentUser.display_name,
+        recipient_id: isBroadcast ? null : targetId,
+        content: content,
+        is_broadcast: isBroadcast
+      });
+
+    if (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  const handleToneChange = async (newTone: 'grave' | 'media' | 'aguda') => {
+    setTone(newTone);
+    await supabase
+      .from('profiles')
+      .update({ notification_tone: newTone })
+      .eq('id', currentUser.id);
   };
 
   return (
@@ -76,10 +137,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
 
         <div className="flex items-center gap-4">
           <div className="flex items-center bg-medical-gray/30 p-1 rounded-lg">
-            {(['low', 'mid', 'high'] as const).map((t) => (
+            {(['grave', 'media', 'aguda'] as const).map((t) => (
               <button
                 key={t}
-                onClick={() => setTone(t)}
+                onClick={() => handleToneChange(t)}
                 className={`px-3 py-1 rounded-md text-[10px] uppercase font-bold transition-all ${
                   tone === t ? 'bg-white text-tiffany-green shadow-sm' : 'text-text-secondary hover:bg-white/50'
                 }`}
@@ -102,12 +163,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
       >
         <AnimatePresence initial={false}>
           {messages.map((msg: Message) => {
-            const isMe = msg.sender_id === currentUser.role;
+            const isMe = msg.sender_id === currentUser.username;
             return (
               <motion.div
                 key={msg.id}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
                 className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`max-w-[70%] p-4 rounded-2xl shadow-sm relative ${
@@ -115,6 +176,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
                     ? 'bg-tiffany-green text-white rounded-tr-none' 
                     : 'bg-white border border-medical-gray text-text-primary rounded-tl-none'
                 }`}>
+                  {!isMe && isBroadcast && (
+                    <p className="text-[9px] font-bold text-tiffany-green mb-1 uppercase tracking-wider">{msg.sender_name}</p>
+                  )}
                   <p className="text-sm leading-relaxed">{msg.content}</p>
                   <div className={`text-[9px] mt-2 flex items-center justify-end opacity-60 ${isMe ? 'text-white' : 'text-text-secondary'}`}>
                     {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

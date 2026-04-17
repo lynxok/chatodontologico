@@ -25,17 +25,29 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For now, any PIN works for testing as requested
-    // We will later verify against Supabase profiles
     if (pin.length < 4) {
       setError('PIN debe tener al menos 4 dígitos');
       return;
     }
+
+    setError('');
+    // Verify PIN against Supabase
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('username', selectedRole)
+      .eq('pin', pin)
+      .single();
+
+    if (error || !data) {
+      setError('PIN incorrecto para este rol');
+      return;
+    }
     
-    // Success simulation
-    onLogin(selectedRole!);
+    // Success - pass the full profile
+    onLogin(data);
   };
 
   return (
