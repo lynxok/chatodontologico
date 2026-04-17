@@ -87,12 +87,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
   const markAsRead = async () => {
     if (isBroadcast || !targetId || !currentUser.username) return;
 
-    await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ read_at: new Date().toISOString() })
       .eq('sender_id', targetId)
       .eq('recipient_id', currentUser.username)
       .is('read_at', null);
+
+    if (error) console.error('Error marking as read:', error);
   };
 
   const fetchMessages = async () => {

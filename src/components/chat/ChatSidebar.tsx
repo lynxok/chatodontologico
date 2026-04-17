@@ -30,19 +30,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     fetchProfiles();
     fetchUnreadCounts();
 
-    // Suscribirse a nuevos mensajes para actualizar contadores
+    // Suscribirse a nuevos mensajes y actualizaciones de lectura
     const channel = supabase
-      .channel('sidebar_updates')
+      .channel('sidebar_updates_v5')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        () => {
-          fetchUnreadCounts();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        { event: '*', schema: 'public', table: 'messages' }, // Escuchar TODO (Insert, Update, Delete)
         () => {
           fetchUnreadCounts();
         }
@@ -50,7 +43,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [currentUser?.username]);
+  }, [currentUser?.username, selectedTarget]); // Refrescar cuando cambie el chat seleccionado
 
   const fetchProfiles = async () => {
     const { data } = await supabase
