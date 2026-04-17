@@ -8,14 +8,20 @@ import log from 'electron-log';
 autoUpdater.logger = log;
 (autoUpdater.logger as any).transports.file.level = 'info';
 
+// Disable hardware acceleration to prevent black screens on Windows
+app.disableHardwareAcceleration();
+
 // The built directory structure
 // dist - web app
 // dist-electron - electron main scripts
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Relative paths for development / production
-const distPath = path.join(__dirname, '../dist');
+// In production, we use the app package path
+const distPath = app.isPackaged 
+  ? path.join(app.getAppPath(), 'dist')
+  : path.join(__dirname, '../dist');
+
 const publicPath = app.isPackaged ? distPath : path.join(__dirname, '../public');
 
 process.env.DIST = distPath;
@@ -50,16 +56,10 @@ function createWindow() {
   } else {
     // In production, load the index.html from dist
     const indexPath = path.join(process.env.DIST, 'index.html');
+    log.info('Loading internal path:', indexPath);
     
-    log.info('Attempting to load index from:', indexPath);
-
-    win.loadURL(format({
-      pathname: indexPath,
-      protocol: 'file:',
-      slashes: true
-    })).catch(err => {
-      log.error('Failed to load via URL format:', err);
-      win?.loadFile(indexPath).catch(e => log.error('Final fallback failed:', e));
+    win.loadFile(indexPath).catch(err => {
+      log.error('Final fallback failed:', err);
     });
   }
 }

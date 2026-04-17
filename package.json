@@ -63,8 +63,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "placeholder-owner",
-      "repo": "placeholder-repo"
+      "owner": "lynxok",
+      "repo": "chatodontologico"
     }
   }
 }
