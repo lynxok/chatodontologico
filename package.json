@@ -1,0 +1,70 @@
+{
+  "name": "chat-ls-odontologia",
+  "private": true,
+  "version": "1.0.0",
+  "main": "dist-electron/main.js",
+  "description": "Chat interno para LS Odontología",
+  "author": "Antigravity AI",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "build:web": "tsc && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:dev": "vite",
+    "electron:build": "vite build && electron-builder"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1",
+    "clsx": "^2.1.1",
+    "electron-log": "^5.3.0",
+    "electron-updater": "^6.3.9",
+    "framer-motion": "^12.4.7",
+    "lucide-react": "^0.477.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sonner": "^2.0.1",
+    "tailwind-merge": "^3.0.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.0",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.2.0",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "vite-plugin-pwa": "^0.21.1"
+  },
+  "build": {
+    "appId": "com.lsodontologia.chat",
+    "productName": "LS Odontología Chat",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist",
+      "dist-electron"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "LS Chat",
+      "artifactName": "Instalador-LS-Chat-${version}.${ext}"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "placeholder-owner",
+      "repo": "placeholder-repo"
+    }
+  }
+}
