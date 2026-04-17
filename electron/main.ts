@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 
-// Start crash reporter before anything else
+// Start crash reporter
 crashReporter.start({
   uploadToServer: false,
   compress: false,
@@ -24,9 +24,10 @@ const distPath = app.isPackaged
 process.env.DIST = distPath;
 process.env.VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
-let win: BrowserWindow | null;
+let win: BrowserWindow | null = null;
 
 function createWindow() {
+  log.info('Creating window...');
   win = new BrowserWindow({
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -43,10 +44,21 @@ function createWindow() {
 
   win.setMenuBarVisibility(false);
 
+  // Load content
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    win.loadFile(path.join(distPath, 'index.html'));
+  }
+
   win.once('ready-to-show', () => {
     win?.show();
+    log.info('Window shown.');
+    // Check for updates after window is visible
     if (app.isPackaged) {
-      autoUpdater.checkForUpdatesAndNotify();
+      setTimeout(() => {
+        autoUpdater.checkForUpdatesAndNotify().catch(err => log.error('Update check failed:', err));
+      }, 3000);
     }
   });
 
@@ -58,6 +70,10 @@ function createWindow() {
   autoUpdater.on('update-downloaded', () => {
     win?.webContents.send('update_downloaded');
   });
+
+  win.on('closed', () => {
+    win = null;
+  });
 }
 
 // Handle update install command from renderer
@@ -68,7 +84,6 @@ ipcMain.on('restart_app', () => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
-    win = null;
   }
 });
 
