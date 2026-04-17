@@ -14,16 +14,22 @@ autoUpdater.logger = log;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-process.env.DIST = path.join(__dirname, '../dist');
+// Relative paths for development / production
+const distPath = path.join(__dirname, '../dist');
+const publicPath = app.isPackaged ? distPath : path.join(__dirname, '../public');
+
+process.env.DIST = distPath;
 process.env.VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
 
 let win: BrowserWindow | null;
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.DIST, 'logo ls.jpeg'),
+    icon: path.join(publicPath, 'logo ls.jpeg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
     },
     width: 1200,
     height: 800,
@@ -36,7 +42,13 @@ function createWindow() {
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
   } else {
-    win.loadFile(path.join(process.env.DIST, 'index.html'));
+    // In production, load the index.html from dist
+    const indexPath = path.join(process.env.DIST, 'index.html');
+    win.loadFile(indexPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+      // Fallback for some bundle structures
+      win?.loadURL(`file://${path.resolve(process.env.DIST, 'index.html')}`);
+    });
   }
 }
 
