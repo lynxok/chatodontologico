@@ -1,124 +1,209 @@
-import React, { useState } from 'react';
-import { Lock, User, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { Lock, User, ArrowLeft, ShieldCheck, Mail, Eye, EyeOff } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { supabase } from '../lib/supabase';
+import { toast } from 'sonner';
 
 interface LoginProps {
-  onLogin: (role: string) => void;
+  onLogin: (userData: any) => void;
 }
 
-const ROLES = [
-  { id: 'secretary', name: 'Secretaría', icon: User },
-  { id: 'consultorio_1', name: 'Consultorio 1', icon: ShieldCheck },
-  { id: 'consultorio_2', name: 'Consultorio 2', icon: ShieldCheck },
-  { id: 'consultorio_3', name: 'Consultorio 3', icon: ShieldCheck },
-  { id: 'admin', name: 'SuperAdmin', icon: Lock },
-];
+import logoLs from '../assets/logo_ls.jpg';
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
-  const [pin, setPin] = useState('');
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleRoleSelect = (roleId: string) => {
-    setSelectedRole(roleId);
-    setPin('');
-    setError('');
+  useEffect(() => {
+    checkSession();
+  }, []);
+
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profile) {
+        onLogin(profile);
+      }
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.length < 4) {
-      setError('PIN debe tener al menos 4 dígitos');
-      return;
-    }
+    setIsLoading(true);
 
-    setError('');
-    // Verify PIN against Supabase
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('username', selectedRole)
-      .eq('pin', pin)
-      .single();
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error || !data) {
-      setError('PIN incorrecto para este rol');
-      return;
+      if (error) {
+        toast.error('Error de acceso: ' + error.message);
+      } else if (data.user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profileError) {
+          toast.error('Error al cargar perfil');
+        } else {
+          toast.success('Bienvenido de nuevo');
+          onLogin(profile);
+        }
+      }
+    } catch (err) {
+      toast.error('Ocurrió un error inesperado');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Success - pass the full profile
-    onLogin(data);
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center p-6 bg-medical-white">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md glass-panel p-8 rounded-3xl text-center"
-      >
-        <img 
-          src="/logo ls.jpeg" 
-          alt="LS Odontología" 
-          className="h-24 mx-auto mb-6 object-contain"
-        />
-        
-        {!selectedRole ? (
-          <div className="space-y-4">
-            <h2 className="text-2xl font-semibold text-text-primary mb-6">Seleccione su Rol</h2>
-            <div className="grid grid-cols-1 gap-3">
-              {ROLES.map((role) => (
-                <button
-                  key={role.id}
-                  onClick={() => handleRoleSelect(role.id)}
-                  className="flex items-center p-4 bg-white border-2 border-transparent hover:border-tiffany-green rounded-2xl transition-all group"
-                >
-                  <div className="w-10 h-10 rounded-full bg-tiffany-soft flex items-center justify-center group-hover:bg-tiffany-green group-hover:text-white transition-colors">
-                    <role.icon size={20} />
-                  </div>
-                  <span className="ml-4 font-medium text-text-secondary group-hover:text-tiffany-green">{role.name}</span>
-                </button>
-              ))}
+    <div style={{ 
+      display: 'flex', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      minHeight: '100vh', 
+      backgroundColor: '#f0f7f7',
+      padding: '20px'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '420px',
+        backgroundColor: 'white',
+        borderRadius: '35px',
+        padding: '40px',
+        boxShadow: '0 20px 50px rgba(26, 58, 58, 0.1)',
+        border: '1px solid #eef2f2'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '35px' }}>
+          <div style={{ 
+            width: '90px', 
+            height: '90px', 
+            margin: '0 auto 15px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            borderRadius: '24px',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.05)'
+          }}>
+            <img 
+              src={logoLs} 
+              alt="Logo LS" 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/90?text=LS'; }}
+            />
+          </div>
+          <h1 style={{ fontSize: '30px', fontWeight: '900', color: '#1A3A3A', margin: '0' }}>LS <span style={{ color: '#0ABAB5' }}>Chat</span></h1>
+          <p style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#4A5568', opacity: '0.6', marginTop: '8px' }}>Sistema de Comunicación Interna</p>
+        </div>
+
+        <form onSubmit={handleLogin} style={{ display: 'grid', gap: '22px' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A', marginLeft: '5px', textTransform: 'uppercase' }}>Correo Electrónico</label>
+            <div style={{ position: 'relative' }}>
+              <Mail size={18} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="usuario@lsclinica.com"
+                style={{
+                  width: '100%',
+                  height: '55px',
+                  padding: '0 20px 0 50px',
+                  backgroundColor: '#f8fafb',
+                  border: '1.5px solid #eef2f2',
+                  borderRadius: '15px',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  boxSizing: 'border-box'
+                }}
+              />
             </div>
           </div>
-        ) : (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="space-y-6"
-          >
-            <button 
-              onClick={() => setSelectedRole(null)}
-              className="text-sm text-tiffany-green hover:underline mb-4 inline-block"
-            >
-              ← Volver a roles
-            </button>
-            <h2 className="text-2xl font-semibold text-text-primary">
-              Ingrese PIN para {ROLES.find(r => r.id === selectedRole)?.name}
-            </h2>
-            
-            <form onSubmit={handleLogin} className="space-y-4">
+
+          <div style={{ display: 'grid', gap: '8px' }}>
+            <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A', marginLeft: '5px', textTransform: 'uppercase' }}>Contraseña</label>
+            <div style={{ position: 'relative' }}>
+              <Lock size={18} style={{ position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
               <input
-                type="password"
-                maxLength={6}
-                placeholder="••••••"
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                className="premium-input text-center text-3xl tracking-widest"
-                autoFocus
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{
+                  width: '100%',
+                  height: '55px',
+                  padding: '0 50px 0 50px',
+                  backgroundColor: '#f8fafb',
+                  border: '1.5px solid #eef2f2',
+                  borderRadius: '15px',
+                  fontSize: '15px',
+                  outline: 'none',
+                  transition: 'all 0.2s',
+                  boxSizing: 'border-box'
+                }}
               />
-              {error && <p className="text-red-500 text-sm">{error}</p>}
-              <button type="submit" className="premium-button w-full text-lg">
-                Ingresar
+              <button 
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{ position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
-            </form>
-          </motion.div>
-        )}
-      </motion.div>
-      
-      <p className="mt-8 text-xs text-text-secondary opacity-50">
-        © 2026 LS Odontología • Chat Interno
-      </p>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 5px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#4A5568' }}>
+              <input 
+                type="checkbox" 
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                style={{ width: '18px', height: '18px', accentColor: '#0ABAB5' }} 
+              />
+              Mantener sesión iniciada
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            style={{
+              height: '60px',
+              backgroundColor: '#1A3A3A',
+              color: 'white',
+              border: 'none',
+              borderRadius: '15px',
+              fontSize: '16px',
+              fontWeight: '800',
+              cursor: isLoading ? 'default' : 'pointer',
+              boxShadow: '0 10px 25px rgba(26, 58, 58, 0.2)',
+              transition: 'all 0.2s',
+              opacity: isLoading ? 0.7 : 1,
+              marginTop: '10px'
+            }}
+          >
+            {isLoading ? 'Iniciando sesión...' : 'Ingresar al Chat'}
+          </button>
+        </form>
+      </div>
     </div>
   );
 };

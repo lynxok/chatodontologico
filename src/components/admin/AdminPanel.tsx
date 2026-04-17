@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Save, Lock, Edit2, ShieldAlert } from 'lucide-react';
+import { Users, Save, Lock, Edit2, ShieldAlert, RefreshCw, UserPlus, Trash2, X, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -9,14 +9,23 @@ interface Profile {
   username: string;
   display_name: string;
   role: string;
-  pin: string;
+  email?: string;
 }
 
 export const AdminPanel: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Profile>>({});
+  
+  // New User Form
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    display_name: '',
+    username: '',
+    role: 'consultorio'
+  });
 
   useEffect(() => {
     fetchProfiles();
@@ -37,163 +46,187 @@ export const AdminPanel: React.FC = () => {
     setLoading(false);
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      // 1. Create User in Auth (Note: Admin would ideally use Auth API, 
+      // but for this MVP we'll use signUp which creates the profile via trigger)
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            username: formData.username,
+            display_name: formData.display_name,
+            role: formData.role
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      toast.success('Usuario creado correctamente');
+      setIsModalOpen(false);
+      setFormData({ email: '', password: '', display_name: '', username: '', role: 'consultorio' });
+      fetchProfiles();
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const startEdit = (profile: Profile) => {
     setEditingId(profile.id);
-    setEditForm(profile);
+    setFormData({
+      ...formData,
+      display_name: profile.display_name,
+      username: profile.username,
+      role: profile.role
+    });
   };
 
   const handleUpdate = async () => {
     if (!editingId) return;
+    setLoading(true);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: editForm.display_name,
-        pin: editForm.pin,
-      })
-      .eq('id', editingId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          display_name: formData.display_name,
+          username: formData.username,
+          role: formData.role
+        })
+        .eq('id', editingId);
 
-    if (error) {
-      toast.error('Error al actualizar');
-    } else {
-      toast.success('Perfil actualizado correctamente');
+      if (error) throw error;
+
+      toast.success('Perfil actualizado');
       setEditingId(null);
       fetchProfiles();
+    } catch (err: any) {
+      toast.error('Error: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (loading) {
+  if (loading && profiles.length === 0) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-tiffany-green"></div>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f7f7' }}>
+        <RefreshCw className="animate-spin text-tiffany-green" size={40} />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 p-8 overflow-y-auto bg-medical-white">
-      <div className="max-w-4xl mx-auto">
-        <header className="mb-8 flex items-center justify-between">
+    <div style={{ flex: 1, padding: '40px', overflowY: 'auto', backgroundColor: '#f0f7f7' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
           <div>
-            <h1 className="text-3xl font-bold text-text-primary flex items-center gap-3">
-              <ShieldAlert className="text-tiffany-green" size={32} />
-              Panel de Administración
-            </h1>
-            <p className="text-text-secondary mt-2">Gestione usuarios, consultorios y claves de acceso.</p>
+            <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#1A3A3A', margin: 0 }}>Gestión de <span style={{ color: '#0ABAB5' }}>Usuarios</span></h1>
+            <p style={{ color: '#4A5568', opacity: 0.7, margin: '5px 0 0' }}>Administre los accesos de la clínica</p>
           </div>
           <button 
-            onClick={fetchProfiles}
-            className="p-3 rounded-full hover:bg-tiffany-soft transition-colors"
+            onClick={() => setIsModalOpen(true)}
+            style={{ 
+              display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', 
+              backgroundColor: '#0ABAB5', color: 'white', border: 'none', borderRadius: '12px', 
+              fontWeight: '700', cursor: 'pointer', boxShadow: '0 4px 15px rgba(10, 186, 181, 0.2)' 
+            }}
           >
-            <Users size={20} className="text-tiffany-green" />
+            <UserPlus size={18} /> Nuevo Usuario
           </button>
         </header>
 
-        <div className="grid gap-6">
-          <AnimatePresence mode="popLayout">
-            {profiles.map((profile) => (
-              <motion.div
-                key={profile.id}
-                layout
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="glass-panel p-6 rounded-3xl"
-              >
+        <div style={{ display: 'grid', gap: '15px' }}>
+          {profiles.map((profile) => (
+            <div 
+              key={profile.id} 
+              style={{ 
+                backgroundColor: 'white', padding: '20px', borderRadius: '20px', 
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                boxShadow: '0 4px 10px rgba(0,0,0,0.02)', border: '1px solid #eef2f2'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <div style={{ width: '50px', height: '50px', backgroundColor: '#f0f7f7', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ABAB5' }}>
+                  <Users size={24} />
+                </div>
+                <div>
+                  {editingId === profile.id ? (
+                    <input 
+                      value={formData.display_name} 
+                      onChange={e => setFormData({...formData, display_name: e.target.value})}
+                      style={{ padding: '8px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '16px', fontWeight: '700' }}
+                    />
+                  ) : (
+                    <h3 style={{ margin: 0, fontWeight: '700', color: '#1A3A3A' }}>{profile.display_name}</h3>
+                  )}
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: '#94a3b8' }}>@{profile.username} · {profile.role}</p>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
                 {editingId === profile.id ? (
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-text-secondary mb-1 uppercase tracking-wider">
-                          Nombre Visible
-                        </label>
-                        <input
-                          type="text"
-                          value={editForm.display_name || ''}
-                          onChange={(e) => setEditForm({...editForm, display_name: e.target.value})}
-                          className="premium-input text-base"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-text-secondary mb-1 uppercase tracking-wider">
-                          PIN de Acceso
-                        </label>
-                        <input
-                          type="text"
-                          maxLength={6}
-                          value={editForm.pin || ''}
-                          onChange={(e) => setEditForm({...editForm, pin: e.target.value.replace(/\D/g, '')})}
-                          className="premium-input text-base font-mono tracking-widest"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <button 
-                        onClick={() => setEditingId(null)}
-                        className="px-6 py-2 text-text-secondary hover:underline"
-                      >
-                        Cancelar
-                      </button>
-                      <button 
-                        onClick={handleUpdate}
-                        className="premium-button flex items-center gap-2"
-                      >
-                        <Save size={18} /> Guardar Cambios
-                      </button>
-                    </div>
-                  </div>
+                  <>
+                    <button onClick={handleUpdate} style={{ padding: '10px', color: '#22c55e', background: 'none', border: 'none', cursor: 'pointer' }}><Save size={20} /></button>
+                    <button onClick={() => setEditingId(null)} style={{ padding: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}><X size={20} /></button>
+                  </>
                 ) : (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-2xl bg-tiffany-soft flex items-center justify-center">
-                        <User className="text-tiffany-green" size={24} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-lg text-text-primary">{profile.display_name}</h3>
-                        <p className="text-sm text-text-secondary flex items-center gap-2">
-                          <span className="capitalize px-2 py-0.5 rounded-full bg-tiffany-soft text-[10px] font-bold text-tiffany-green border border-tiffany-green/20">
-                            {profile.role}
-                          </span>
-                          • @{profile.username}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-[10px] uppercase font-bold text-text-secondary mb-0.5 opacity-50">PIN Actual</p>
-                        <p className="font-mono font-bold text-tiffany-green tracking-widest">****</p>
-                      </div>
-                      <button 
-                        onClick={() => startEdit(profile)}
-                        className="p-3 bg-tiffany-soft/50 text-tiffany-green rounded-2xl hover:bg-tiffany-green hover:text-white transition-all"
-                      >
-                        <Edit2 size={20} />
-                      </button>
-                    </div>
-                  </div>
+                  <button onClick={() => startEdit(profile)} style={{ padding: '10px', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer' }}><Edit2 size={20} /></button>
                 )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
+
+      {/* Create User Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: '20px' }}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+              style={{ backgroundColor: 'white', padding: '40px', borderRadius: '30px', width: '100%', maxWidth: '500px', boxShadow: '0 25px 50px rgba(0,0,0,0.2)' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '30px' }}>
+                <h2 style={{ margin: 0, fontSize: '22px', fontWeight: '900', color: '#1A3A3A' }}>Crear Nuevo Usuario</h2>
+                <button onClick={() => setIsModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}><X size={24} /></button>
+              </div>
+
+              <form onSubmit={handleCreateUser} style={{ display: 'grid', gap: '20px' }}>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A' }}>Correo Electrónico (Para Login)</label>
+                  <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} style={{ padding: '15px', borderRadius: '12px', border: '1px solid #eef2f2', backgroundColor: '#f8fafb' }} />
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A' }}>Contraseña Inicial</label>
+                  <input required type="password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} style={{ padding: '15px', borderRadius: '12px', border: '1px solid #eef2f2', backgroundColor: '#f8fafb' }} />
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A' }}>Nombre a Mostrar (Ej: Consultorio 1)</label>
+                  <input required value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} style={{ padding: '15px', borderRadius: '12px', border: '1px solid #eef2f2', backgroundColor: '#f8fafb' }} />
+                </div>
+                <div style={{ display: 'grid', gap: '8px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A' }}>Nombre de Usuario (ID único)</label>
+                  <input required value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} style={{ padding: '15px', borderRadius: '12px', border: '1px solid #eef2f2', backgroundColor: '#f8fafb' }} />
+                </div>
+                
+                <button type="submit" style={{ marginTop: '10px', height: '55px', backgroundColor: '#1A3A3A', color: 'white', border: 'none', borderRadius: '15px', fontWeight: '800', cursor: 'pointer' }}>
+                  Crear Usuario
+                </button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
-
-const User = ({ className, size }: { className?: string, size?: number }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={size || 24} 
-    height={size || 24} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-  </svg>
-);

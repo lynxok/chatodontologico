@@ -13,11 +13,10 @@ crashReporter.start({
 log.transports.file.level = 'debug';
 log.info('App starting...');
 
-// Disable hardware acceleration to prevent rendering black screens on Windows
-app.disableHardwareAcceleration();
-app.commandLine.appendSwitch('disable-gpu');
-app.commandLine.appendSwitch('disable-gpu-compositing');
-app.commandLine.appendSwitch('disable-software-rasterizer');
+// app.disableHardwareAcceleration();
+// app.commandLine.appendSwitch('disable-gpu');
+// app.commandLine.appendSwitch('disable-gpu-compositing');
+// app.commandLine.appendSwitch('disable-software-rasterizer');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -56,7 +55,7 @@ function createWindow() {
   win.once('ready-to-show', () => {
     log.info('Window ready-to-show');
     win?.show();
-    win?.webContents.openDevTools();
+    // win?.webContents.openDevTools(); // Disabled for production
   });
 
   // Capture renderer crashes
