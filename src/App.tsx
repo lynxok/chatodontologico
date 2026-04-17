@@ -32,15 +32,14 @@ function App() {
   const [user, setUser] = useState<any | null>(null);
   const [view, setView] = useState<'chat' | 'admin'>('chat');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
+  const [onlineIds, setOnlineIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!user?.id) return;
     const channel = supabase.channel('presence_layer', { config: { presence: { key: user.id } } });
     const sync = () => {
       const state = channel.presenceState();
-      const ids = new Set<string>();
-      Object.keys(state).forEach(key => ids.add(key));
+      const ids = Object.keys(state);
       setOnlineIds(ids);
     };
     channel.on('presence', { event: 'sync' }, sync).on('presence', { event: 'join' }, sync).on('presence', { event: 'leave' }, sync)

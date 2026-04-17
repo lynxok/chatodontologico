@@ -46,23 +46,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
   useEffect(() => {
     setMessages([]);
     fetchMessages();
+    markAsRead();
 
     const channel = supabase
-      .channel(`chat_${targetId || 'broadcast'}_${currentUser.username}_v3`)
+      .channel('public_messages_v4') // Canal simplificado para toda la tabla
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
           const msg = payload.new as Message;
-          const isForMe = isBroadcast
+          
+          // Lógica de filtrado mejorada:
+          // 1. Si es un broadcast, lo mostramos si estamos en modo broadcast
+          // 2. Si es chat privado, verificamos que el emisor/receptor coincidan con el chat actual
+          const isRelevant = isBroadcast
             ? msg.is_broadcast
-            : (msg.sender_id === targetId && msg.recipient_id === currentUser.username) ||
-              (msg.sender_id === currentUser.username && msg.recipient_id === targetId);
+            : (!msg.is_broadcast && (
+                (msg.sender_id === targetId && msg.recipient_id === currentUser.username) ||
+                (msg.sender_id === currentUser.username && msg.recipient_id === targetId)
+              ));
 
-          if (isForMe) {
-            setMessages(prev => [...prev, msg]);
+          if (isRelevant) {
+            setMessages(prev => {
+              if (prev.find(m => m.id === msg.id)) return prev;
+              return [...prev, msg];
+            });
+
             if (msg.sender_id !== currentUser.username) {
               notifyNewMessage(msg.sender_name, msg.content, currentUser.notification_tone || 'media');
+              markAsRead(); // Marcar como leído si estamos en el chat
             }
           }
         }
@@ -71,6 +83,17 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
 
     return () => { supabase.removeChannel(channel); };
   }, [targetId, isBroadcast, currentUser.username]);
+
+  const markAsRead = async () => {
+    if (isBroadcast || !targetId || !currentUser.username) return;
+
+    await supabase
+      .from('messages')
+      .update({ read_at: new Date().toISOString() })
+      .eq('sender_id', targetId)
+      .eq('recipient_id', currentUser.username)
+      .is('read_at', null);
+  };
 
   const fetchMessages = async () => {
     let query = supabase.from('messages').select('*').order('created_at', { ascending: true });

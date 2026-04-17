@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Users, Megaphone, Search, Circle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import logoLs from '../../assets/logo_ls.jpg';
 
-interface Contact {
+interface Profile {
   id: string;
   username: string;
   display_name: string;
@@ -10,94 +10,145 @@ interface Contact {
 }
 
 interface ChatSidebarProps {
+  onSelectTarget: (target: Profile | 'broadcast') => void;
+  selectedTarget: Profile | 'broadcast' | null;
+  onlineIds: string[];
   currentUser: any;
-  onSelectContact: (contact: Contact | 'broadcast') => void;
-  selectedId: string | 'broadcast';
-  onlineIds: Set<string>;
 }
 
-export const ChatSidebar: React.FC<ChatSidebarProps> = ({ currentUser, onSelectContact, selectedId, onlineIds }) => {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+export const ChatSidebar: React.FC<ChatSidebarProps> = ({ 
+  onSelectTarget, 
+  selectedTarget, 
+  onlineIds,
+  currentUser 
+}) => {
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (!currentUser) return;
-    const fetchContacts = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, role')
-          .order('display_name');
-        if (!error && data) {
-          setContacts(data.filter((c: any) => c.id !== currentUser.id));
-        }
-      } catch (err) { console.error(err); }
-    };
-    fetchContacts();
-  }, [currentUser?.id]);
+    fetchProfiles();
+    fetchUnreadCounts();
 
-  if (!currentUser) return <div style={{ width: '300px', backgroundColor: 'white' }} />;
+    // Suscribirse a nuevos mensajes para actualizar contadores
+    const channel = supabase
+      .channel('sidebar_updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        () => {
+          fetchUnreadCounts();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages' },
+        () => {
+          fetchUnreadCounts();
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.username]);
+
+  const fetchProfiles = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .neq('username', currentUser?.username)
+      .order('display_name');
+    setProfiles(data || []);
+  };
+
+  const fetchUnreadCounts = async () => {
+    if (!currentUser?.username) return;
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select('sender_id')
+      .eq('recipient_id', currentUser.username)
+      .is('read_at', null);
+
+    if (!error && data) {
+      const counts: Record<string, number> = {};
+      data.forEach(msg => {
+        counts[msg.sender_id] = (counts[msg.sender_id] || 0) + 1;
+      });
+      setUnreadCounts(counts);
+    }
+  };
+
+  const filteredProfiles = profiles.filter(p => 
+    p.display_name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div style={{ width: '300px', height: '100%', backgroundColor: 'white', borderRight: '1px solid #e8eef0', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
-      <div style={{ padding: '25px 24px', borderBottom: '1px solid #f8fafb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '42px', height: '42px', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f8fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={logoLs} alt="L" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => (e.currentTarget.style.display = 'none')} />
-          </div>
-          <h1 style={{ margin: 0, fontSize: '17px', fontWeight: '900', color: '#1A3A3A', lineHeight: 1.1 }}>LS Centro <br /> <span style={{ color: '#0ABAB5' }}>Odontológico</span></h1>
+    <div style={{ width: '320px', borderRight: '1px solid #e8eef0', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
+      <div style={{ padding: '30px 24px 20px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#1A3A3A', margin: 0 }}>Chat <span style={{ color: '#0ABAB5' }}>Clínico</span></h1>
+        <div style={{ marginTop: '20px', position: 'relative' }}>
+          <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <input 
+            type="text" 
+            placeholder="Buscar consultorio..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{ width: '100%', padding: '12px 12px 12px 40px', borderRadius: '14px', border: '1.5px solid #eef2f2', backgroundColor: '#f8fafb', fontSize: '14px', outline: 'none', transition: 'all 0.2s', fontWeight: '600' }}
+          />
         </div>
       </div>
 
-      <div style={{ padding: '16px 24px' }}>
-        <button
-          onClick={() => onSelectContact('broadcast')}
-          style={{ width: '100%', padding: '14px', borderRadius: '16px', border: 'none', cursor: 'pointer', backgroundColor: selectedId === 'broadcast' ? '#1a3a3a' : '#f8fafb', color: selectedId === 'broadcast' ? 'white' : '#1a3a3a', display: 'flex', alignItems: 'center', gap: '12px' }}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
+        <div 
+          onClick={() => onSelectTarget('broadcast')}
+          style={{ padding: '16px 12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: selectedTarget === 'broadcast' ? '#f0f7f7' : 'transparent', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}
         >
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: selectedId === 'broadcast' ? '#0ABAB5' : '#e0f2f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📣</div>
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '14px', fontWeight: '800' }}>Difusión General</div>
-            <div style={{ fontSize: '11px', opacity: 0.7 }}>A todos</div>
-          </div>
-        </button>
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px 24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {contacts.map((contact) => {
-            const isOnline = onlineIds.has(contact.id);
-            const isSelected = selectedId === contact.id;
-            return (
-              <button
-                key={contact.id}
-                onClick={() => onSelectContact(contact)}
-                style={{ width: '100%', padding: '12px', borderRadius: '16px', border: 'none', cursor: 'pointer', backgroundColor: isSelected ? '#f0f7f7' : 'transparent', display: 'flex', alignItems: 'center', gap: '12px' }}
-              >
-                <div style={{ position: 'relative' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '14px', backgroundColor: '#eef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '800', border: isSelected ? '2px solid #0ABAB5' : '2px solid transparent' }}>
-                    {(contact.display_name || '?').charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '12px', height: '12px', borderRadius: '50%', border: '2px solid white', backgroundColor: isOnline ? '#22c55e' : '#cbd5e1' }} />
-                </div>
-                <div style={{ textAlign: 'left', flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#1A3A3A' }}>{contact.display_name}</div>
-                  <div style={{ fontSize: '11px', color: isOnline ? '#22c55e' : '#94a3b8' }}>{isOnline ? 'Conectado' : 'Desconectado'}</div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ padding: '20px 24px', borderTop: '1px solid #f8fafb' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ width: '38px', height: '38px', borderRadius: '12px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: '800' }}>
-            {(currentUser.display_name || 'U').charAt(0).toUpperCase()}
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 4px 12px rgba(10, 186, 181, 0.2)' }}>
+            <Megaphone size={22} />
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: '800' }}>{currentUser.display_name}</div>
-            <div style={{ fontSize: '11px', color: '#22c55e' }}>● En línea (Tú)</div>
+            <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '15px' }}>Difusión General</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>Toda la clínica</div>
           </div>
         </div>
+
+        <div style={{ margin: '20px 12px 10px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Contactos</div>
+
+        {filteredProfiles.map((profile) => {
+          const isSelected = (selectedTarget as Profile)?.id === profile.id;
+          const isOnline = Array.isArray(onlineIds) && onlineIds.includes(profile.id);
+          const unreadCount = unreadCounts[profile.username] || 0;
+
+          return (
+            <div 
+              key={profile.id}
+              onClick={() => onSelectTarget(profile)}
+              style={{ padding: '12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: isSelected ? '#f0f7f7' : 'transparent', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ position: 'relative' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#f0f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ABAB5', fontWeight: 800, fontSize: '18px', border: '1.5px solid #eef2f2' }}>
+                    {profile.display_name.charAt(0)}
+                  </div>
+                  {isOnline && (
+                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#22c55e', border: '3px solid white' }}></div>
+                  )}
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '15px' }}>{profile.display_name}</div>
+                  <div style={{ fontSize: '12px', color: isOnline ? '#22c55e' : '#94a3b8', fontWeight: 600 }}>{isOnline ? 'En línea' : 'Desconectado'}</div>
+                </div>
+              </div>
+              
+              {unreadCount > 0 && (
+                <div style={{ backgroundColor: '#EF4444', color: 'white', minWidth: '22px', height: '22px', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', padding: '0 6px', boxShadow: '0 4px 8px rgba(239, 68, 68, 0.3)' }}>
+                  {unreadCount}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
