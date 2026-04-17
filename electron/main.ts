@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
@@ -10,6 +11,8 @@ autoUpdater.logger = log;
 // The built directory structure
 // dist - web app
 // dist-electron - electron main scripts
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 process.env.DIST = path.join(__dirname, '../dist');
 process.env.VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
