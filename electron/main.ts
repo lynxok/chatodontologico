@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 
-// Configure logging for the updater
 log.transports.file.level = "info";
 autoUpdater.logger = log;
 
@@ -22,7 +21,7 @@ function createWindow() {
     title: 'LS Odontología - Chat',
     backgroundColor: '#F8FAFA',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.mjs'), // Usamos .mjs o .js según tu build
+      preload: path.join(__dirname, 'preload.mjs'),
       nodeIntegration: false,
       contextIsolation: true,
     },
@@ -36,43 +35,22 @@ function createWindow() {
     win.loadFile(path.join(distPath, 'index.html'));
   }
 
-  win.on('closed', () => {
-    win = null;
-  });
+  win.on('closed', () => { win = null; });
 
-  // Check for updates after the window is created
   if (app.isPackaged) {
-    autoUpdater.checkForUpdatesAndNotify().catch(err => {
-      log.error("Error checking for updates:", err);
-    });
+    autoUpdater.checkForUpdatesAndNotify().catch(err => log.error(err));
   }
 }
 
+// ── IPC Handler for Admin Debug Console ──────────────────────────────
+ipcMain.on('open-dev-tools', () => {
+  if (win) win.webContents.openDevTools();
+});
+
 app.whenReady().then(createWindow);
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
-});
-
-// Updater Events for better control
-autoUpdater.on('update-available', () => {
-  log.info('Update available.');
-});
-
-autoUpdater.on('update-downloaded', () => {
-  log.info('Update downloaded; will install now');
-  // Optional: ask user to restart
-  // autoUpdater.quitAndInstall(); 
-});
-
-autoUpdater.on('error', (err) => {
-  log.error('Error in auto-updater: ' + err);
-});
+autoUpdater.on('update-available', () => log.info('Update available.'));
+autoUpdater.on('update-downloaded', () => log.info('Update downloaded.'));
+autoUpdater.on('error', (err) => log.error('Updater error: ' + err));

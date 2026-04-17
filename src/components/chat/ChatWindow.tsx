@@ -202,7 +202,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target }) =
             <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '10px' }}>
               {!isMe && (
                 <div style={{ width: '34px', height: '34px', borderRadius: '12px', backgroundColor: '#e0f7f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px', color: '#0ABAB5', flexShrink: 0, border: '1.5px solid #c8eeec' }}>
-                  {msg.sender_name?.charAt(0).toUpperCase()}
+                  {(msg.sender_name || '?').charAt(0).toUpperCase()}
                 </div>
               )}
 
