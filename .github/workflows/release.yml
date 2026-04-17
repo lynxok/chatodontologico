@@ -1,0 +1,50 @@
+name: Build/Release Electron App
+
+on:
+  push:
+    tags:
+      - 'v*' # Se activa cuando creas una etiqueta de versión como v1.0.1
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Electron App
+        run: npm run electron:build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Cleanup release artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          Get-ChildItem -Path release\*.exe | Rename-Item -NewName "Instalador-LS-Chat-Windows.exe"
+        shell: pwsh
+
+      - name: Release artifacts
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
