@@ -27,6 +27,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds }
             key={selectedTarget === 'broadcast' ? 'broadcast' : selectedTarget.id} 
             currentUser={currentUser} 
             target={selectedTarget} 
+            onlineIds={onlineIds}
           />
         ) : (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', gap: '12px' }}>
