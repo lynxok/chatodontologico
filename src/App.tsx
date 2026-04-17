@@ -1,27 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Login } from './components/Login';
 import { ChatModule } from './components/chat/ChatModule';
 import { AdminPanel } from './components/admin/AdminPanel';
-import { LogOut, Shield, MessageSquare, Settings as SettingsIcon } from 'lucide-react';
+import { LogOut, Shield, MessageSquare } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { UserSettings } from './components/UserSettings';
 import { supabase } from './lib/supabase';
-
-import logoLs from './assets/logo_ls.jpg';
 
 function App() {
   const [user, setUser] = useState<any | null>(null);
   const [view, setView] = useState<'chat' | 'admin'>('chat');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const presenceChannelRef = useRef<any>(null);
+
+  // ── Announce presence when user logs in ──────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return;
+
+    // Create a dedicated presence channel for the whole app
+    const channel = supabase.channel('app_presence', {
+      config: { presence: { key: user.id } },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        // Presence state is managed by subscribers (ChatSidebar)
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          // Track this user as online with their profile data
+          await channel.track({
+            user_id: user.id,
+            username: user.username,
+            display_name: user.display_name,
+            online_at: new Date().toISOString(),
+          });
+        }
+      });
+
+    presenceChannelRef.current = channel;
+
+    // Cleanup: untrack when component unmounts or user changes
+    return () => {
+      channel.untrack();
+      supabase.removeChannel(channel);
+      presenceChannelRef.current = null;
+    };
+  }, [user?.id]);
 
   const handleLogin = (userData: any) => {
     if (!userData) return;
     setUser(userData);
-    // If admin, go to admin panel. If others, go to chat.
     setView(userData?.role === 'admin' ? 'admin' : 'chat');
   };
 
   const handleLogout = async () => {
+    // Untrack presence before logging out
+    if (presenceChannelRef.current) {
+      await presenceChannelRef.current.untrack();
+      supabase.removeChannel(presenceChannelRef.current);
+      presenceChannelRef.current = null;
+    }
     await supabase.auth.signOut();
     setUser(null);
     setView('chat');
@@ -48,11 +87,11 @@ function App() {
       backgroundColor: '#f0f4f5',
     }}>
       <Toaster position="top-right" expand={false} richColors />
-      
-      <UserSettings 
-        user={user} 
-        isOpen={isSettingsOpen} 
-        onClose={() => setIsSettingsOpen(false)} 
+
+      <UserSettings
+        user={user}
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         onLogout={handleLogout}
         onUpdate={(updated) => setUser(updated)}
       />
@@ -70,11 +109,11 @@ function App() {
         flexShrink: 0,
       }}>
         {/* User Profile Trigger */}
-        <button 
+        <button
           onClick={() => setIsSettingsOpen(true)}
-          style={{ 
-            display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', 
-            cursor: 'pointer', padding: '5px 10px', borderRadius: '8px' 
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none',
+            cursor: 'pointer', padding: '5px 10px', borderRadius: '8px'
           }}
           onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
           onMouseOut={e => e.currentTarget.style.backgroundColor = 'transparent'}
@@ -105,7 +144,7 @@ function App() {
           </button>
         )}
 
-        {/* Logout Quick Button */}
+        {/* Logout */}
         <button
           onClick={handleLogout}
           style={{

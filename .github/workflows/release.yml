@@ -3,7 +3,7 @@ name: Build/Release Electron App
 on:
   push:
     tags:
-      - 'v*' # Se activa cuando creas una etiqueta de versión como v1.0.1
+      - 'v*' # Se activa con v1.0.3, etc.
 
 jobs:
   release:
@@ -32,12 +32,6 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Cleanup release artifacts (Windows)
-        if: matrix.os == 'windows-latest'
-        run: |
-          Get-ChildItem -Path release\*.exe | Rename-Item -NewName "Instalador-LS-Chat-Windows.exe"
-        shell: pwsh
-
       - name: Release artifacts
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
@@ -46,5 +40,7 @@ jobs:
             release/*.exe
             release/*.dmg
             release/*.zip
+            release/*.yml
+            release/*.blockmap
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
