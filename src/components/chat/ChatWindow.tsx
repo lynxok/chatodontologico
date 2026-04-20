@@ -33,7 +33,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
   const isBroadcast = target === 'broadcast';
   const targetName = isBroadcast ? 'Difusión General' : target?.display_name ?? '';
   const targetId = isBroadcast ? null : (target?.id || target?.username || null);
-  const isOnline = !isBroadcast && Array.isArray(onlineIds) && onlineIds.includes(target?.id);
+  const isOnline = !isBroadcast && Array.isArray(onlineIds) && (onlineIds.includes(target?.id) || onlineIds.includes(target?.username));
   
   const quickReplies = (currentUser?.quick_replies && Array.isArray(currentUser.quick_replies) && currentUser.quick_replies.length > 0) 
     ? currentUser.quick_replies 

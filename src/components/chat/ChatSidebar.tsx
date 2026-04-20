@@ -153,7 +153,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
         {filteredProfiles.map((profile) => {
           const isSelected = (selectedTarget as Profile)?.id === profile.id;
-          const isOnline = Array.isArray(onlineIds) && onlineIds.includes(profile.id);
+          const isOnline = Array.isArray(onlineIds) && (onlineIds.includes(profile.id) || onlineIds.includes(profile.username));
           const unreadCount = (unreadCounts[profile.username] || 0) + (unreadCounts[profile.id] || 0);
 
           return (
