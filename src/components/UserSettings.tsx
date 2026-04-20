@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Camera, User, Lock, Save, X, LogOut, Plus, Trash2, MessageSquare } from 'lucide-react';
+import { Camera, User, Lock, Save, X, LogOut, Plus, Trash2, MessageSquare, RefreshCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
@@ -19,6 +19,56 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, isOpen, onClos
   const [newReply, setNewReply] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'replies'>('profile');
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle');
+
+  React.useEffect(() => {
+    // @ts-ignore
+    if (!window.electron) return;
+
+    // @ts-ignore
+    window.electron.receive('update-available', (info: any) => {
+      setUpdateStatus('available');
+      toast.info(`Nueva versión disponible: ${info.version}`);
+    });
+
+    // @ts-ignore
+    window.electron.receive('update-not-available', () => {
+      setUpdateStatus('not-available');
+      toast.success('Ya tienes la versión más reciente');
+    });
+
+    // @ts-ignore
+    window.electron.receive('update-download-progress', (progress: any) => {
+      setUpdateStatus('downloading');
+    });
+
+    // @ts-ignore
+    window.electron.receive('update-downloaded', () => {
+      setUpdateStatus('downloaded');
+      toast.success('Actualización descargada. Reinicia para instalar.');
+    });
+
+    // @ts-ignore
+    window.electron.receive('update-error', (err: string) => {
+      setUpdateStatus('error');
+      // Si el error es muy largo o contiene XML, mostramos algo genérico
+      const cleanErr = (err.includes('<?xml') || err.length > 100) 
+        ? "Servidor de actualizaciones no disponible o versión no publicada." 
+        : err;
+      toast.error('Error al actualizar: ' + cleanErr);
+    });
+  }, []);
+
+  const handleCheckUpdates = () => {
+    // @ts-ignore
+    if (window.electron && window.electron.checkForUpdates) {
+      setUpdateStatus('checking');
+      // @ts-ignore
+      window.electron.checkForUpdates();
+    } else {
+      toast.error('El actualizador no está disponible en este entorno');
+    }
+  };
 
   const handleUpdateProfile = async () => {
     setLoading(true);
@@ -136,6 +186,30 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, isOpen, onClos
                       <button onClick={handleChangePassword} style={{ width: '50px', height: '50px', backgroundColor: '#1A3A3A', color: 'white', border: 'none', borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                         <Lock size={18} />
                       </button>
+                    </div>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '12px', fontWeight: '800', color: '#1A3A3A', textTransform: 'uppercase' }}>Sistema</label>
+                      <button 
+                        onClick={handleCheckUpdates}
+                        disabled={updateStatus === 'checking' || updateStatus === 'downloading'}
+                        style={{ 
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                          padding: '15px', borderRadius: '15px', border: '1.5px solid #eef2f2', 
+                          backgroundColor: '#f8fafb', color: '#1A3A3A', fontWeight: '700', cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#eef2f2'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8fafb'}
+                      >
+                        <RefreshCcw size={18} className={updateStatus === 'checking' || updateStatus === 'downloading' ? 'animate-spin' : ''} style={{ animation: (updateStatus === 'checking' || updateStatus === 'downloading') ? 'spin 1s linear infinite' : 'none' }} />
+                        {updateStatus === 'checking' ? 'Buscando...' : 
+                         updateStatus === 'downloading' ? 'Descargando...' :
+                         updateStatus === 'downloaded' ? 'Listo para instalar' :
+                         'Buscar Actualización'}
+                      </button>
+                      <style>{`
+                        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                      `}</style>
                     </div>
                   </div>
                 </div>

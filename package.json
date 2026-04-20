@@ -1,7 +1,7 @@
 {
   "name": "chat-ls-odontologia",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.1.3",
   "main": "dist-electron/main.js",
   "description": "Chat interno para LS Odontología",
   "author": "Antigravity AI",
@@ -50,7 +50,7 @@
     "vite-plugin-pwa": "^0.21.1"
   },
   "build": {
-    "appId": "com.lsodontologia.chat",
+    "appId": "LSChat",
     "productName": "LS Odontología Chat",
     "directories": {
       "output": "release"

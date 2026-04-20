@@ -47,6 +47,12 @@ function App() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id]);
 
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   const handleLogin = (userData: any) => {
     if (!userData) return;
     setUser(userData);
@@ -71,7 +77,7 @@ function App() {
     return (
       <ErrorBoundary>
         <div style={{ minHeight: '100vh', backgroundColor: '#f0f4f5' }}>
-          <Toaster position="top-right" expand={false} richColors /><Login onLogin={handleLogin} />
+          <Toaster position="bottom-right" expand={false} richColors /><Login onLogin={handleLogin} />
         </div>
       </ErrorBoundary>
     );
@@ -82,7 +88,7 @@ function App() {
   return (
     <ErrorBoundary>
       <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: "'Outfit', sans-serif", backgroundColor: '#f0f4f5' }}>
-        <Toaster position="top-right" expand={false} richColors />
+        <Toaster position="bottom-right" expand={false} richColors />
         <UserSettings user={user} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onUpdate={setUser} />
 
         <div style={{ height: '42px', backgroundColor: '#1a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 20px', gap: '12px' }}>
@@ -92,9 +98,10 @@ function App() {
             <button 
               onClick={openDebug}
               title="Abrir consola de depuración"
-              style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.3)', cursor: 'pointer', padding: '5px' }}
-              onMouseOver={e => e.currentTarget.style.color = 'white'}
-              onMouseOut={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
+              title="Abrir consola de depuración"
+              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
+              onMouseOut={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
             >
               <Terminal size={14} />
             </button>

@@ -52,12 +52,36 @@ class SoundEngine {
 const engine = new SoundEngine();
 
 export const notifyNewMessage = (sender: string, message: string, tone: ToneType = 'media') => {
-  // 1. Play premium audio synthesis
-  engine.play(tone);
+  console.log('🔔 notifyNewMessage called', { sender, message });
 
-  // 2. Show glassmorphism toast
-  toast.success(`Mensaje de ${sender}`, {
-    description: message,
-    duration: 5000,
-  });
+  // 1. Show internal toast IMMEDIATELY (Fallback)
+  try {
+    toast.success(`Mensaje de ${sender}`, {
+      description: message,
+      duration: 5000,
+    });
+  } catch (e) {
+    console.error('Toast failed:', e);
+  }
+
+  // 2. Play audio
+  try {
+    engine.play(tone);
+  } catch (e) {
+    console.error('Sound failed:', e);
+  }
+
+  // 3. Native OS Notification
+  // @ts-ignore
+  if (window.electron && window.electron.showNotification) {
+    // @ts-ignore
+    window.electron.showNotification(`Mensaje de ${sender}`, message);
+  }
+
+  // 4. Flash Taskbar Icon
+  // @ts-ignore
+  if (window.electron && window.electron.notifyMessage) {
+    // @ts-ignore
+    window.electron.notifyMessage();
+  }
 };

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChatSidebar } from './ChatSidebar';
 import { ChatWindow } from './ChatWindow';
+import { supabase } from '../../lib/supabase';
+import { notifyNewMessage } from '../../lib/notifications';
 
 interface ChatModuleProps {
   currentUser: any;
@@ -11,6 +13,36 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds }
   const [selectedTarget, setSelectedTarget] = useState<any | 'broadcast'>(
     currentUser?.role === 'secretary' ? 'broadcast' : null
   );
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+
+    const channel = supabase
+      .channel('global_notifications_v1')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const msg = payload.new;
+          
+          // Verificar si el mensaje es para mí (ID, username o broadcast)
+          const isForMe = msg.recipient_id === currentUser.id || 
+                          msg.recipient_id === currentUser.username || 
+                          msg.is_broadcast;
+          
+          // No notificar si soy el remitente
+          const isFromMe = msg.sender_id === currentUser.id || 
+                           msg.sender_id === currentUser.username;
+
+          if (isForMe && !isFromMe) {
+            notifyNewMessage(msg.sender_name, msg.content, currentUser.notification_tone || 'media');
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUser?.id, currentUser?.username, currentUser?.notification_tone]);
 
   return (
     <div style={{ display: 'flex', flex: 1, height: '100%', overflow: 'hidden', backgroundColor: '#f0f4f5' }}>

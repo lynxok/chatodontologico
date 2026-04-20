@@ -54,15 +54,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
           const isRelevant = isBroadcast
             ? msg.is_broadcast
             : (!msg.is_broadcast && (
-                (msg.sender_id === targetId && msg.recipient_id === currentUser.id) ||
-                (msg.sender_id === currentUser.id && msg.recipient_id === targetId) ||
-                (msg.sender_id === target?.username && msg.recipient_id === currentUser.username)
+                (
+                  (msg.sender_id === target?.id || msg.sender_id === target?.username) &&
+                  (msg.recipient_id === currentUser.id || msg.recipient_id === currentUser.username)
+                ) ||
+                (
+                  (msg.sender_id === currentUser.id || msg.sender_id === currentUser.username) &&
+                  (msg.recipient_id === target?.id || msg.recipient_id === target?.username)
+                )
               ));
 
           if (isRelevant) {
             setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
             if (msg.sender_id !== currentUser.id && msg.sender_id !== currentUser.username) {
-              notifyNewMessage(msg.sender_name, msg.content, currentUser.notification_tone || 'media');
               markAsRead();
             }
           }
@@ -89,13 +93,19 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     let query = supabase.from('messages').select('*').order('created_at', { ascending: true });
     if (isBroadcast) {
       query = query.eq('is_broadcast', true);
-    } else if (targetId) {
-      query = query.or(
-        `and(sender_id.eq.${currentUser.id},recipient_id.eq.${targetId}),` +
-        `and(sender_id.eq.${targetId},recipient_id.eq.${currentUser.id}),` +
-        `and(sender_id.eq.${currentUser.username},recipient_id.eq.${target?.username}),` +
-        `and(sender_id.eq.${target?.username},recipient_id.eq.${currentUser.username})`
-      );
+    } else if (target?.id || target?.username) {
+      const uId = currentUser.id;
+      const uName = currentUser.username;
+      const tId = target?.id;
+      const tName = target?.username;
+      
+      const conditions = [];
+      if (uId && tId) conditions.push(`and(sender_id.eq.${uId},recipient_id.eq.${tId})`, `and(sender_id.eq.${tId},recipient_id.eq.${uId})`);
+      if (uId && tName) conditions.push(`and(sender_id.eq.${uId},recipient_id.eq.${tName})`, `and(sender_id.eq.${tName},recipient_id.eq.${uId})`);
+      if (uName && tId) conditions.push(`and(sender_id.eq.${uName},recipient_id.eq.${tId})`, `and(sender_id.eq.${tId},recipient_id.eq.${uName})`);
+      if (uName && tName) conditions.push(`and(sender_id.eq.${uName},recipient_id.eq.${tName})`, `and(sender_id.eq.${tName},recipient_id.eq.${uName})`);
+      
+      query = query.or(conditions.join(','));
     }
     const { data, error } = await query;
     if (!error) setMessages(data || []);

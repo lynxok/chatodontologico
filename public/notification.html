@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      margin: 0;
+      padding: 10px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      overflow: hidden;
+      background: transparent;
+    }
+    .container {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+      user-select: none;
+    }
+    .container:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.95);
+    }
+    .icon {
+      width: 44px;
+      height: 44px;
+      background: linear-gradient(135deg, #0ABAB5 0%, #08938f 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+      font-weight: 900;
+      flex-shrink: 0;
+      box-shadow: 0 5px 15px rgba(10, 186, 181, 0.3);
+    }
+    .content {
+      flex: 1;
+      overflow: hidden;
+    }
+    .title {
+      font-weight: 800;
+      color: #1A3A3A;
+      font-size: 14px;
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .body {
+      color: #4A5568;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    .animate-in {
+      animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  </style>
+</head>
+<body>
+  <div class="container animate-in" id="card">
+    <div class="icon" id="icon">C</div>
+    <div class="content">
+      <div class="title" id="title">Nuevo Mensaje</div>
+      <div class="body" id="message">Hola, ¿cómo estás?</div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    document.getElementById('title').innerText = urlParams.get('title') || 'Mensaje';
+    document.getElementById('message').innerText = urlParams.get('body') || '';
+    document.getElementById('icon').innerText = (urlParams.get('title') || 'C').charAt(0).toUpperCase();
+
+    document.getElementById('card').onclick = () => {
+      // Usar postMessage o simplemente esperar que el Main detecte el clic vía IPC
+      // Pero como no tenemos preload aquí, usaremos un truco: cambiar el hash o título
+      window.location.hash = 'clicked';
+    };
+  </script>
+</body>
+</html>

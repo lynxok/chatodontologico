@@ -60,7 +60,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     const { data, error } = await supabase
       .from('messages')
       .select('sender_id')
-      .eq('recipient_id', currentUser.username)
+      .or(`recipient_id.eq.${currentUser.username},recipient_id.eq.${currentUser.id}`)
       .is('read_at', null);
 
     if (!error && data) {
@@ -75,6 +75,49 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const filteredProfiles = profiles.filter(p => 
     p.display_name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Efecto para actualizar el contador en el icono de la app (Electron)
+  useEffect(() => {
+    const total = Object.values(unreadCounts).reduce((acc, curr) => acc + curr, 0);
+    
+    // @ts-ignore
+    if (window.electron) {
+      // Para macOS/Linux
+      // @ts-ignore
+      if (window.electron.setBadgeCount) window.electron.setBadgeCount(total);
+      
+      // Para Windows (Overlay Icon)
+      // @ts-ignore
+      if (window.electron.setOverlayIcon) {
+        if (total > 0) {
+          const canvas = document.createElement('canvas');
+          canvas.width = 32;
+          canvas.height = 32;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Fondo circular rojo
+            ctx.fillStyle = '#EF4444';
+            ctx.beginPath();
+            ctx.arc(16, 16, 14, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Texto blanco
+            ctx.fillStyle = 'white';
+            ctx.font = 'bold 18px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(total > 99 ? '99+' : total.toString(), 16, 16);
+            
+            // @ts-ignore
+            window.electron.setOverlayIcon(canvas.toDataURL('image/png'));
+          }
+        } else {
+          // @ts-ignore
+          window.electron.setOverlayIcon(null);
+        }
+      }
+    }
+  }, [unreadCounts]);
 
   return (
     <div style={{ width: '320px', borderRight: '1px solid #e8eef0', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
@@ -111,7 +154,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {filteredProfiles.map((profile) => {
           const isSelected = (selectedTarget as Profile)?.id === profile.id;
           const isOnline = Array.isArray(onlineIds) && onlineIds.includes(profile.id);
-          const unreadCount = unreadCounts[profile.username] || 0;
+          const unreadCount = (unreadCounts[profile.username] || 0) + (unreadCounts[profile.id] || 0);
 
           return (
             <div 
