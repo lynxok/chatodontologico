@@ -54,7 +54,8 @@ const engine = new SoundEngine();
 export const notifyNewMessage = (sender: string, message: string, tone: ToneType = 'media') => {
   console.log('🔔 notifyNewMessage called', { sender, message });
 
-  // 1. Show internal toast IMMEDIATELY (Fallback)
+  // 1. Show internal toast disabled as per user request
+  /*
   try {
     toast.success(`Mensaje de ${sender}`, {
       description: message,
@@ -63,6 +64,7 @@ export const notifyNewMessage = (sender: string, message: string, tone: ToneType
   } catch (e) {
     console.error('Toast failed:', e);
   }
+  */
 
   // 2. Play audio
   try {
