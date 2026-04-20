@@ -134,6 +134,53 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     if (error) toast.error('Error al enviar mensaje');
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Límite de 10MB
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('El archivo es demasiado grande (máximo 10MB)');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+      const filePath = `${currentUser.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-attachments')
+        .upload(filePath, file);
+
+      if (uploadError) {
+        if (uploadError.message.includes('bucket not found')) {
+          throw new Error('El contenedor de archivos "chat-attachments" no existe en Supabase.');
+        }
+        throw uploadError;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-attachments')
+        .getPublicUrl(filePath);
+
+      await sendMessage('', {
+        url: publicUrl,
+        name: file.name,
+        type: file.type
+      });
+
+      toast.success('Archivo enviado correctamente');
+    } catch (error: any) {
+      console.error('Error al subir archivo:', error);
+      toast.error('Error: ' + error.message);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(inputValue); };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(inputValue); } };
 
@@ -187,12 +234,18 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
 
       <div style={{ backgroundColor: 'white', padding: '15px 24px 25px', borderTop: '1px solid #e8eef0' }}>
         <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: '#f8fafb', borderRadius: '18px', padding: '6px 6px 6px 16px', border: '1.5px solid #eef2f2' }}>
-          <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={e => {}} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '8px' }}><Paperclip size={20} /></button>
+          <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUploading ? '#0ABAB5' : '#94a3b8', padding: '8px' }}>
+            {isUploading ? <RefreshCcw size={20} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <Paperclip size={20} />}
+          </button>
           <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo archivo..." : "Escribe un mensaje..."} style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '14px', color: '#1A3A3A', fontWeight: '600' }} />
-          <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '45px', height: '45px', borderRadius: '14px', border: 'none', backgroundColor: inputValue.trim() ? '#0ABAB5' : '#eef2f2', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={18} /></button>
+          <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '45px', height: '45px', borderRadius: '14px', border: 'none', backgroundColor: (inputValue.trim() && !isUploading) ? '#0ABAB5' : '#eef2f2', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={18} /></button>
         </form>
+        <style>{`
+          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        `}</style>
       </div>
     </div>
+
   );
 };
