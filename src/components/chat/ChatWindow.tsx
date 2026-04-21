@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw } from 'lucide-react';
 import { notifyNewMessage } from '../../lib/notifications';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
