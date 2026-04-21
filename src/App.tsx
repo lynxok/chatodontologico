@@ -139,6 +139,7 @@ function App() {
           )}
           <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><LogOut size={13} /></button>
         </div>
+      </div>
 
         <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} onlineIds={onlineIds} />}
