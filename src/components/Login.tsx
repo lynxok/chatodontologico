@@ -16,6 +16,19 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      // @ts-ignore
+      if (window.electron && window.electron.getAppVersion) {
+        // @ts-ignore
+        const v = await window.electron.getAppVersion();
+        setVersion(v);
+      }
+    };
+    fetchVersion();
+  }, []);
 
   useEffect(() => {
     checkSession();
@@ -203,6 +216,20 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {isLoading ? 'Iniciando sesión...' : 'Ingresar al Chat'}
           </button>
         </form>
+        {version && (
+          <div style={{ 
+            marginTop: '25px', 
+            textAlign: 'center', 
+            opacity: 0.4, 
+            fontSize: '10px', 
+            fontWeight: '800', 
+            color: '#1A3A3A',
+            letterSpacing: '1px',
+            textTransform: 'uppercase'
+          }}>
+            v{version}
+          </div>
+        )}
       </div>
     </div>
   );

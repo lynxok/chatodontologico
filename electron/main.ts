@@ -71,6 +71,8 @@ if (process.platform === 'win32') {
   app.setAppUserModelId('LSChat');
 }
 
+ipcMain.handle('get-app-version', () => app.getVersion());
+
 ipcMain.on('show-notification', (event, { title, body }) => {
   // 1. Notificación nativa como respaldo silencioso
   if (Notification.isSupported()) {

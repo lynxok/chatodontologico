@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('electron', {
   setBadgeCount: (count: number) => ipcRenderer.send('set-badge-count', count),
   setOverlayIcon: (dataUrl: string | null) => ipcRenderer.send('set-overlay-icon', dataUrl),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   // Conservamos las demás funciones si existen
   send: (channel: string, data: any) => {
     let validChannels = ['toMain', 'open-dev-tools', 'notify-message', 'focus-window', 'check-for-updates', 'show-notification'];

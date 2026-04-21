@@ -33,6 +33,19 @@ function App() {
   const [view, setView] = useState<'chat' | 'admin'>('chat');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
+  const [version, setVersion] = useState('');
+
+  useEffect(() => {
+    const fetchVersion = async () => {
+      // @ts-ignore
+      if (window.electron && window.electron.getAppVersion) {
+        // @ts-ignore
+        const v = await window.electron.getAppVersion();
+        setVersion(v);
+      }
+    };
+    fetchVersion();
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -91,7 +104,11 @@ function App() {
         <Toaster position="bottom-right" expand={false} richColors />
         <UserSettings user={user} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onUpdate={setUser} />
 
-        <div style={{ height: '42px', backgroundColor: '#1a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '0 20px', gap: '12px' }}>
+        <div style={{ height: '42px', backgroundColor: '#1a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontWeight: '800', letterSpacing: '1px' }}>
+            {version ? `V${version}` : ''}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           
           {/* Debug Button (Admin only) */}
           {isAdmin && (
