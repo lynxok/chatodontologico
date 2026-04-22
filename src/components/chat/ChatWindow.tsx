@@ -194,67 +194,98 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(inputValue); } };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#f0f4f5', overflow: 'hidden', minWidth: 0 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'transparent', overflow: 'hidden', minWidth: 0 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', height: '70px', minHeight: '70px', backgroundColor: 'white', borderBottom: '1px solid #e8eef0', flexShrink: 0 }}>
-        <div>
-          <div style={{ fontWeight: 800, fontSize: '17px', color: '#1A3A3A' }}>{isBroadcast ? 'Difusión General' : targetName}</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '3px' }}>
-            <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isOnline || isBroadcast ? '#22c55e' : '#94a3b8', display: 'inline-block' }}></span>
-            <span style={{ fontSize: '12px', color: isOnline || isBroadcast ? '#22c55e' : '#94a3b8', fontWeight: 600 }}>
-              {isBroadcast ? 'Todos los consultorios' : (isOnline ? 'En línea' : 'Desconectado')}
-            </span>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', height: '70px', minHeight: '70px', backgroundColor: 'rgba(255,255,255,0.3)', borderBottom: '1px solid rgba(26, 58, 58, 0.05)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ width: '40px', height: '40px', borderRadius: '12px', backgroundColor: '#e0f7f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, color: '#0ABAB5', fontSize: '15px', border: '1px solid rgba(10, 186, 181, 0.2)' }}>
+            {(targetName || 'D').charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: '16px', color: '#1A3A3A' }}>{isBroadcast ? 'Difusión General' : targetName}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1px' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: isOnline || isBroadcast ? '#22c55e' : '#94a3b8', display: 'inline-block' }}></span>
+              <span style={{ fontSize: '11px', color: isOnline || isBroadcast ? '#22c55e' : '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                {isBroadcast ? 'Todos los consultorios' : (isOnline ? 'En línea' : 'Desconectado')}
+              </span>
+            </div>
           </div>
         </div>
-        <button style={{ width: '36px', height: '36px', borderRadius: '8px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+        <button className="hover-glass" style={{ width: '36px', height: '36px', borderRadius: '10px', border: 'none', backgroundColor: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
           <MoreVertical size={20} />
         </button>
       </div>
 
-      <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div ref={scrollRef} className="premium-scroll" style={{ flex: 1, overflowY: 'auto', padding: '30px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUser.id || msg.sender_id === currentUser.username;
           const isImage = msg.file_type?.startsWith('image/');
           const time = new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
           return (
-            <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '10px' }}>
+            <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '12px', animation: 'fadeIn 0.3s ease-out' }}>
               {!isMe && (
-                <div style={{ width: '34px', height: '34px', borderRadius: '12px', backgroundColor: '#e0f7f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '14px', color: '#0ABAB5', flexShrink: 0, border: '1.5px solid #c8eeec' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px', color: '#0ABAB5', flexShrink: 0, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
                   {(msg.sender_name || '?').charAt(0).toUpperCase()}
                 </div>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start', maxWidth: '70%' }}>
-                <div style={{ padding: msg.file_url && isImage ? '8px' : '12px 16px', borderRadius: isMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px', backgroundColor: isMe ? '#0ABAB5' : 'white', color: isMe ? 'white' : '#1A3A3A', fontSize: '14px', fontWeight: 500, boxShadow: '0 2px 10px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                  {msg.file_url ? (isImage ? <img src={msg.file_url} alt="adjunto" style={{ maxWidth: '100%', borderRadius: '12px', display: 'block', cursor: 'pointer' }} onClick={() => window.open(msg.file_url, '_blank')} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '5px' }}><div style={{ padding: '10px', borderRadius: '10px', backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : '#f0f7f7' }}><FileText size={24} /></div><div style={{ overflow: 'hidden' }}><p style={{ margin: 0, fontSize: '13px', fontWeight: '700', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{msg.file_name}</p><a href={msg.file_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: isMe ? 'rgba(255,255,255,0.8)' : '#0ABAB5', textDecoration: 'none', fontWeight: '800' }}>Descargar archivo</a></div></div>) : msg.content}
+                <div style={{ 
+                  padding: msg.file_url && isImage ? '8px' : '12px 18px', 
+                  borderRadius: isMe ? '22px 22px 4px 22px' : '22px 22px 22px 4px', 
+                  background: isMe ? 'linear-gradient(135deg, #0ABAB5 0%, #08938F 100%)' : 'white', 
+                  color: isMe ? 'white' : '#1A3A3A', 
+                  fontSize: '14.5px', 
+                  fontWeight: 500, 
+                  boxShadow: isMe ? '0 8px 20px rgba(10, 186, 181, 0.2)' : '0 4px 15px rgba(0,0,0,0.03)',
+                  border: isMe ? 'none' : '1px solid rgba(26, 58, 58, 0.03)'
+                }}>
+                  {msg.file_url ? (
+                    isImage ? (
+                      <img src={msg.file_url} alt="adjunto" style={{ maxWidth: '100%', borderRadius: '14px', display: 'block', cursor: 'pointer' }} onClick={() => window.open(msg.file_url, '_blank')} />
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px' }}>
+                        <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : '#f0f7f7', color: isMe ? 'white' : '#0ABAB5' }}>
+                          <FileText size={22} />
+                        </div>
+                        <div style={{ overflow: 'hidden' }}>
+                          <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{msg.file_name}</p>
+                          <a href={msg.file_url} target="_blank" rel="noreferrer" style={{ fontSize: '11px', color: isMe ? 'rgba(255,255,255,0.8)' : '#0ABAB5', textDecoration: 'none', fontWeight: '800' }}>Descargar archivo</a>
+                        </div>
+                      </div>
+                    )
+                  ) : msg.content}
                 </div>
-                <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '4px', fontWeight: '700' }}>{time}</span>
+                <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '6px', marginSide: '4px', fontWeight: '700', textTransform: 'uppercase' }}>{time}</span>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div style={{ padding: '10px 24px', display: 'flex', gap: '8px', flexWrap: 'wrap', backgroundColor: 'transparent' }}>
+      <div style={{ padding: '0 30px 10px', display: 'flex', gap: '8px', flexWrap: 'wrap', backgroundColor: 'transparent' }}>
         {quickReplies.map((reply) => (
-          <button key={reply} onClick={() => sendMessage(reply)} style={{ padding: '8px 16px', borderRadius: '12px', border: '1.5px solid #d1d5db', backgroundColor: 'white', color: '#374151', fontSize: '12px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.2s' }} onMouseOver={e => { e.currentTarget.style.borderColor = '#0ABAB5'; e.currentTarget.style.color = '#0ABAB5'; }} onMouseOut={e => { e.currentTarget.style.borderColor = '#d1d5db'; e.currentTarget.style.color = '#374151'; }}>{reply}</button>
+          <button 
+            key={reply} 
+            onClick={() => sendMessage(reply)} 
+            className="hover-glass"
+            style={{ padding: '8px 16px', borderRadius: '14px', border: 'none', backgroundColor: 'rgba(255,255,255,0.5)', color: '#374151', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
+          >
+            {reply}
+          </button>
         ))}
       </div>
 
-      <div style={{ backgroundColor: 'white', padding: '15px 24px 25px', borderTop: '1px solid #e8eef0' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: '#f8fafb', borderRadius: '18px', padding: '6px 6px 6px 16px', border: '1.5px solid #eef2f2' }}>
+      <div style={{ padding: '15px 30px 30px', backgroundColor: 'transparent' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'white', borderRadius: '22px', padding: '8px 8px 8px 20px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid rgba(26, 58, 58, 0.03)' }}>
           <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUploading ? '#0ABAB5' : '#94a3b8', padding: '8px' }}>
-            {isUploading ? <RefreshCcw size={20} className="animate-spin" style={{ animation: 'spin 1s linear infinite' }} /> : <Paperclip size={20} />}
+          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="hover-glass" style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUploading ? '#0ABAB5' : '#94a3b8', padding: '10px', borderRadius: '14px' }}>
+            {isUploading ? <RefreshCcw size={20} className="animate-spin" /> : <Paperclip size={20} />}
           </button>
-          <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo archivo..." : "Escribe un mensaje..."} style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '14px', color: '#1A3A3A', fontWeight: '600' }} />
-          <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '45px', height: '45px', borderRadius: '14px', border: 'none', backgroundColor: (inputValue.trim() && !isUploading) ? '#0ABAB5' : '#eef2f2', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Send size={18} /></button>
+          <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo archivo..." : "Escribe un mensaje..."} style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '15px', color: '#1A3A3A', fontWeight: '600' }} />
+          <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '48px', height: '48px', borderRadius: '16px', border: 'none', backgroundColor: (inputValue.trim() && !isUploading) ? '#0ABAB5' : '#f1f5f9', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', boxShadow: (inputValue.trim() && !isUploading) ? '0 6px 15px rgba(10, 186, 181, 0.3)' : 'none' }}><Send size={20} /></button>
         </form>
-        <style>{`
-          @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        `}</style>
       </div>
     </div>
-
   );
 };

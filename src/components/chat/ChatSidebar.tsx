@@ -121,9 +121,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   }, [unreadCounts]);
 
   return (
-    <div style={{ width: '320px', borderRight: '1px solid #e8eef0', display: 'flex', flexDirection: 'column', backgroundColor: 'white' }}>
+    <div className="glass-sidebar" style={{ width: '320px', display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 10 }}>
       <div style={{ padding: '30px 24px 20px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#1A3A3A', margin: 0 }}>Chat <span style={{ color: '#0ABAB5' }}>Clínico</span></h1>
+        <h1 style={{ fontSize: '24px', fontWeight: 900, color: '#1A3A3A', margin: 0, letterSpacing: '-0.5px' }}>Chat <span style={{ color: '#0ABAB5' }}>Clínico</span></h1>
         <div style={{ marginTop: '20px', position: 'relative' }}>
           <Search size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input 
@@ -131,15 +131,38 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             placeholder="Buscar consultorio..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', padding: '12px 12px 12px 40px', borderRadius: '14px', border: '1.5px solid #eef2f2', backgroundColor: '#f8fafb', fontSize: '14px', outline: 'none', transition: 'all 0.2s', fontWeight: '600' }}
+            style={{ 
+              width: '100%', 
+              padding: '12px 12px 12px 40px', 
+              borderRadius: '16px', 
+              border: 'none', 
+              backgroundColor: 'rgba(255,255,255,0.5)', 
+              fontSize: '14px', 
+              outline: 'none', 
+              transition: 'all 0.3s', 
+              fontWeight: '600' 
+            }}
+            onFocus={(e) => e.currentTarget.style.backgroundColor = 'white'}
+            onBlur={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.5)'}
           />
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
+      <div className="premium-scroll" style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
         <div 
           onClick={() => onSelectTarget('broadcast')}
-          style={{ padding: '16px 12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: selectedTarget === 'broadcast' ? '#f0f7f7' : 'transparent', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
+          className="hover-glass"
+          style={{ 
+            padding: '16px 14px', 
+            borderRadius: '20px', 
+            cursor: 'pointer', 
+            backgroundColor: selectedTarget === 'broadcast' ? 'white' : 'transparent', 
+            marginBottom: '8px', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            boxShadow: selectedTarget === 'broadcast' ? '0 10px 25px rgba(0,0,0,0.05)' : 'none'
+          }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 4px 12px rgba(10, 186, 181, 0.2)' }}>
@@ -169,11 +192,22 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             <div 
               key={profile.id}
               onClick={() => onSelectTarget(profile)}
-              style={{ padding: '12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: isSelected ? '#f0f7f7' : 'transparent', marginBottom: '4px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
+              className="hover-glass"
+              style={{ 
+                padding: '14px', 
+                borderRadius: '20px', 
+                cursor: 'pointer', 
+                backgroundColor: isSelected ? 'white' : 'transparent', 
+                marginBottom: '4px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                boxShadow: isSelected ? '0 10px 25px rgba(0,0,0,0.05)' : 'none'
+              }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div style={{ position: 'relative' }}>
-                  <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#f0f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ABAB5', fontWeight: 800, fontSize: '18px', border: '1.5px solid #eef2f2' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '16px', backgroundColor: '#e0f7f6', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0ABAB5', fontWeight: 800, fontSize: '18px', border: '1px solid rgba(10, 186, 181, 0.2)' }}>
                     {profile.display_name.charAt(0)}
                   </div>
                   {isOnline && (
@@ -181,8 +215,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                   )}
                 </div>
                 <div>
-                  <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '15px' }}>{profile.display_name}</div>
-                  <div style={{ fontSize: '12px', color: isOnline ? '#22c55e' : '#94a3b8', fontWeight: 600 }}>{isOnline ? 'En línea' : 'Desconectado'}</div>
+                  <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '14px' }}>{profile.display_name}</div>
+                  <div style={{ fontSize: '11px', color: isOnline ? '#22c55e' : '#94a3b8', fontWeight: 700 }}>{isOnline ? 'En línea' : 'Desconectado'}</div>
                 </div>
               </div>
               

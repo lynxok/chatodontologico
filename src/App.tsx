@@ -139,50 +139,59 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: "'Outfit', sans-serif", backgroundColor: '#f0f4f5' }}>
+      <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', position: 'relative', overflow: 'hidden', fontFamily: "'Outfit', sans-serif" }}>
+        <div className="mesh-gradient" />
         <Toaster position="bottom-right" expand={false} richColors />
         <UserSettings user={user} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onUpdate={setUser} />
 
-        <div style={{ height: '42px', backgroundColor: '#1a3a3a', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 20px' }}>
-          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)', fontWeight: '800', letterSpacing: '1px' }}>
-            {version ? `V${version}` : ''}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="glass-container" style={{ 
+          width: '100%', 
+          maxWidth: '1440px', 
+          height: '95vh', 
+          borderRadius: '28px', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden',
+          position: 'relative',
+          zIndex: 10
+        }}>
           
-          {/* Debug Button (Admin only) */}
-          {isAdmin && (
-            <button 
-              onClick={openDebug}
-              title="Abrir consola de depuración"
-              style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onMouseOver={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)'}
-              onMouseOut={e => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'}
-            >
-              <Terminal size={14} />
-            </button>
-          )}
-
-          <button onClick={() => setIsSettingsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <div style={{ width: '22px', height: '22px', borderRadius: '6px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '10px', fontWeight: '800' }}>
-              {(user.display_name || 'U').charAt(0).toUpperCase()}
+          <div style={{ height: '54px', background: 'rgba(26, 58, 58, 0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ fontSize: '11px', color: 'rgba(129, 216, 208, 0.6)', fontWeight: '900', letterSpacing: '2px' }}>
+                {version ? `LYNX V${version}` : 'LYNX CHAT'}
+              </div>
             </div>
-            <span style={{ fontSize: '12px', color: '#81D8D0', fontWeight: 700 }}>{user.display_name || 'Usuario'}</span>
-          </button>
 
-          <div style={{ width: '1px', height: '16px', backgroundColor: 'rgba(255,255,255,0.15)' }}></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              {isAdmin && (
+                <button onClick={openDebug} title="Consola" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Terminal size={14} />
+                </button>
+              )}
 
-          {isAdmin && (
-            <button onClick={() => setView(view === 'chat' ? 'admin' : 'chat')} style={{ padding: '5px 12px', borderRadius: '8px', border: 'none', backgroundColor: view === 'admin' ? '#0ABAB5' : 'rgba(255,255,255,0.12)', color: 'white', fontWeight: 700, fontSize: '11px', cursor: 'pointer' }}>
-              {view === 'admin' ? <MessageSquare size={13} /> : <Shield size={13} />}
-            </button>
-          )}
-          <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }}><LogOut size={13} /></button>
+              {isAdmin && (
+                <button onClick={() => setView(view === 'chat' ? 'admin' : 'chat')} style={{ padding: '6px 16px', borderRadius: '10px', border: 'none', backgroundColor: view === 'admin' ? '#0ABAB5' : 'rgba(255,255,255,0.1)', color: 'white', fontWeight: 700, fontSize: '11px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {view === 'admin' ? <><MessageSquare size={14} /> Chat</> : <><Shield size={14} /> Panel Admin</>}
+                </button>
+              )}
+
+              <button onClick={() => setIsSettingsOpen(true)} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'none', border: 'none', cursor: 'pointer' }}>
+                <div style={{ width: '28px', height: '28px', borderRadius: '10px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '12px', fontWeight: '800' }}>
+                  {(user.display_name || 'U').charAt(0).toUpperCase()}
+                </div>
+                <span style={{ fontSize: '13px', color: '#FFFFFF', fontWeight: 600 }}>{user.display_name || 'Usuario'}</span>
+              </button>
+
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><LogOut size={16} /></button>
+            </div>
+          </div>
+
+          <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} onlineIds={onlineIds} />}
+          </main>
         </div>
-      </div>
-
-        <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-          {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} onlineIds={onlineIds} />}
-        </main>
       </div>
     </ErrorBoundary>
   );
