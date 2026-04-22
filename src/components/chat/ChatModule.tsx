@@ -35,7 +35,11 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds }
                            msg.sender_id === currentUser.username;
 
           if (isForMe && !isFromMe) {
-            notifyNewMessage(msg.sender_name, msg.content, currentUser.notification_tone || 'media');
+            const notificationTitle = msg.is_broadcast 
+              ? `📢 DIFUSIÓN de ${msg.sender_name}` 
+              : msg.sender_name;
+            
+            notifyNewMessage(notificationTitle, msg.content, currentUser.notification_tone || 'media');
           }
         }
       )

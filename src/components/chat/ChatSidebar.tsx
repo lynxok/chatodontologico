@@ -59,14 +59,15 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
     const { data, error } = await supabase
       .from('messages')
-      .select('sender_id')
-      .or(`recipient_id.eq.${currentUser.username},recipient_id.eq.${currentUser.id}`)
+      .select('sender_id, is_broadcast')
+      .or(`recipient_id.eq.${currentUser.username},recipient_id.eq.${currentUser.id},is_broadcast.eq.true`)
       .is('read_at', null);
 
     if (!error && data) {
       const counts: Record<string, number> = {};
       data.forEach(msg => {
-        counts[msg.sender_id] = (counts[msg.sender_id] || 0) + 1;
+        const key = msg.is_broadcast ? 'broadcast' : msg.sender_id;
+        counts[key] = (counts[key] || 0) + 1;
       });
       setUnreadCounts(counts);
     }
@@ -138,15 +139,23 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 12px' }}>
         <div 
           onClick={() => onSelectTarget('broadcast')}
-          style={{ padding: '16px 12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: selectedTarget === 'broadcast' ? '#f0f7f7' : 'transparent', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}
+          style={{ padding: '16px 12px', borderRadius: '16px', cursor: 'pointer', backgroundColor: selectedTarget === 'broadcast' ? '#f0f7f7' : 'transparent', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', transition: 'all 0.2s' }}
         >
-          <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 4px 12px rgba(10, 186, 181, 0.2)' }}>
-            <Megaphone size={22} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '14px', backgroundColor: '#0ABAB5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', boxShadow: '0 4px 12px rgba(10, 186, 181, 0.2)' }}>
+              <Megaphone size={22} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '15px' }}>Difusión General</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>Toda la clínica</div>
+            </div>
           </div>
-          <div>
-            <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '15px' }}>Difusión General</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}>Toda la clínica</div>
-          </div>
+          
+          {(unreadCounts['broadcast'] || 0) > 0 && (
+            <div style={{ backgroundColor: '#EF4444', color: 'white', minWidth: '22px', height: '22px', borderRadius: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '900', padding: '0 6px', boxShadow: '0 4px 8px rgba(239, 68, 68, 0.3)' }}>
+              {unreadCounts['broadcast']}
+            </div>
+          )}
         </div>
 
         <div style={{ margin: '20px 12px 10px', fontSize: '11px', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px' }}>Contactos</div>

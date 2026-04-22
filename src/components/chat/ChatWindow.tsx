@@ -78,15 +78,24 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
   }, [targetId, isBroadcast, currentUser.id]);
 
   const markAsRead = async () => {
-    if (isBroadcast || !targetId || !currentUser.id) return;
+    if (!currentUser.id) return;
 
-    // Marcamos como leído usando tanto el ID como el username por retrocompatibilidad
-    await supabase
-      .from('messages')
-      .update({ read_at: new Date().toISOString() })
-      .or(`sender_id.eq.${targetId},sender_id.eq.${target?.username}`)
-      .or(`recipient_id.eq.${currentUser.id},recipient_id.eq.${currentUser.username}`)
-      .is('read_at', null);
+    if (isBroadcast) {
+      // Para difusión, marcamos todos los mensajes de difusión como leídos
+      await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('is_broadcast', true)
+        .is('read_at', null);
+    } else if (targetId) {
+      // Para chats privados, marcamos los mensajes de ese contacto
+      await supabase
+        .from('messages')
+        .update({ read_at: new Date().toISOString() })
+        .or(`sender_id.eq.${targetId},sender_id.eq.${target?.username}`)
+        .or(`recipient_id.eq.${currentUser.id},recipient_id.eq.${currentUser.username}`)
+        .is('read_at', null);
+    }
   };
 
   const fetchMessages = async () => {
