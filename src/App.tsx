@@ -49,16 +49,55 @@ function App() {
 
   useEffect(() => {
     if (!user?.id) return;
-    const channel = supabase.channel('presence_layer', { config: { presence: { key: user.id } } });
+    
+    const channel = supabase.channel('presence_layer', { 
+      config: { 
+        presence: { key: user.id } 
+      } 
+    });
+
     const sync = () => {
       const state = channel.presenceState();
-      const ids = Object.keys(state);
-      setOnlineIds(ids);
+      const ids = Object.values(state)
+        .flat()
+        .map((p: any) => [p.id, p.username])
+        .flat()
+        .filter(Boolean);
+      setOnlineIds([...new Set(ids)]);
     };
-    channel.on('presence', { event: 'sync' }, sync).on('presence', { event: 'join' }, sync).on('presence', { event: 'leave' }, sync)
-      .subscribe(async (status) => { if (status === 'SUBSCRIBED') await channel.track({ id: user.id, display_name: user.display_name }); });
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id]);
+
+    channel
+      .on('presence', { event: 'sync' }, sync)
+      .on('presence', { event: 'join' }, sync)
+      .on('presence', { event: 'leave' }, sync)
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track({ 
+            id: user.id, 
+            username: user.username, 
+            display_name: user.display_name,
+            online_at: new Date().toISOString()
+          });
+        }
+      });
+
+    // Re-track cada 30 segundos para mantener la presencia activa
+    const interval = setInterval(async () => {
+      if (channel.state === 'joined') {
+        await channel.track({ 
+          id: user.id, 
+          username: user.username, 
+          display_name: user.display_name,
+          online_at: new Date().toISOString()
+        });
+      }
+    }, 30000);
+
+    return () => { 
+      clearInterval(interval);
+      supabase.removeChannel(channel); 
+    };
+  }, [user?.id, user?.username]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {

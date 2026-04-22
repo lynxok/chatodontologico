@@ -1,7 +1,7 @@
 {
   "name": "chat-ls-odontologia",
   "private": true,
-  "version": "1.1.12",
+  "version": "1.1.13",
   "main": "dist-electron/main.js",
   "description": "Chat interno para LS Odontología",
   "author": "Antigravity AI",
