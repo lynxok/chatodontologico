@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Save, Lock, Edit2, ShieldAlert, RefreshCw, UserPlus, Trash2, X, Eye, EyeOff } from 'lucide-react';
+import { Users, Save, Lock, Edit2, ShieldAlert, RefreshCw, UserPlus, Trash2, X, Eye, EyeOff, FileText, AlertTriangle, Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -13,11 +13,24 @@ interface Profile {
   raw_password?: string;
 }
 
+interface SystemLog {
+  id: string;
+  user_id: string;
+  user_name: string;
+  error_type: string;
+  error_message: string;
+  details: any;
+  created_at: string;
+}
+
 export const AdminPanel: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [logs, setLogs] = useState<SystemLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'users' | 'logs'>('users');
+  const [expandedLog, setExpandedLog] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showPasswords, setShowPasswords] = useState<{ [key: string]: boolean }>({});
   
   const [formData, setFormData] = useState({
@@ -29,8 +42,25 @@ export const AdminPanel: React.FC = () => {
   });
 
   useEffect(() => {
-    fetchProfiles();
-  }, []);
+    if (activeTab === 'users') fetchProfiles();
+    else fetchLogs();
+  }, [activeTab]);
+
+  const fetchLogs = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('system_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      toast.error('Error al cargar logs');
+    } else {
+      setLogs(data || []);
+    }
+    setLoading(false);
+  };
 
   const fetchProfiles = async () => {
     setLoading(true);
@@ -133,17 +163,42 @@ export const AdminPanel: React.FC = () => {
   return (
     <div style={{ flex: 1, padding: '40px', overflowY: 'auto', backgroundColor: '#f0f7f7' }}>
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px' }}>
-          <div>
-            <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#1A3A3A', margin: 0 }}>Gestión de <span style={{ color: '#0ABAB5' }}>Usuarios</span></h1>
-            <p style={{ color: '#4A5568', opacity: 0.7, margin: '5px 0 0' }}>Ver y administrar accesos del personal</p>
+        <header style={{ marginBottom: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+            <div>
+              <h1 style={{ fontSize: '28px', fontWeight: '900', color: '#1A3A3A', margin: 0 }}>Panel de <span style={{ color: '#0ABAB5' }}>Control Admin</span></h1>
+              <p style={{ color: '#4A5568', opacity: 0.7, margin: '5px 0 0' }}>Administración de usuarios y monitoreo de errores</p>
+            </div>
+            {activeTab === 'users' && (
+              <button onClick={() => { setEditingProfile(null); setFormData({ email: '', password: '', display_name: '', username: '', role: 'consultorio' }); setIsModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', backgroundColor: '#0ABAB5', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                <UserPlus size={18} /> Nuevo Usuario
+              </button>
+            )}
+            {activeTab === 'logs' && (
+              <button onClick={fetchLogs} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', backgroundColor: 'white', color: '#1A3A3A', border: '1px solid #eef2f2', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>
+                <RefreshCw size={18} className={loading ? 'animate-spin' : ''} /> Actualizar
+              </button>
+            )}
           </div>
-          <button onClick={() => { setEditingProfile(null); setFormData({ email: '', password: '', display_name: '', username: '', role: 'consultorio' }); setIsModalOpen(true); }} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', backgroundColor: '#0ABAB5', color: 'white', border: 'none', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}>
-            <UserPlus size={18} /> Nuevo Usuario
-          </button>
+
+          <div style={{ display: 'flex', gap: '10px', backgroundColor: 'rgba(26, 58, 58, 0.05)', padding: '6px', borderRadius: '14px', width: 'fit-content' }}>
+            <button 
+              onClick={() => setActiveTab('users')}
+              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'users' ? 'white' : 'transparent', color: activeTab === 'users' ? '#1A3A3A' : '#94a3b8', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: activeTab === 'users' ? '0 4px 10px rgba(0,0,0,0.05)' : 'none' }}
+            >
+              <Users size={16} /> Usuarios
+            </button>
+            <button 
+              onClick={() => setActiveTab('logs')}
+              style={{ padding: '8px 20px', borderRadius: '10px', border: 'none', backgroundColor: activeTab === 'logs' ? 'white' : 'transparent', color: activeTab === 'logs' ? '#1A3A3A' : '#94a3b8', fontWeight: '800', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: activeTab === 'logs' ? '0 4px 10px rgba(0,0,0,0.05)' : 'none' }}
+            >
+              <FileText size={16} /> Logs de Errores
+            </button>
+          </div>
         </header>
 
-        <div style={{ display: 'grid', gap: '15px' }}>
+        {activeTab === 'users' ? (
+          <div style={{ display: 'grid', gap: '15px' }}>
           {profiles.map((profile) => (
             <div key={profile.id} style={{ backgroundColor: 'white', padding: '20px', borderRadius: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid #eef2f2' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -179,6 +234,57 @@ export const AdminPanel: React.FC = () => {
             </div>
           ))}
         </div>
+        ) : (
+          <div style={{ display: 'grid', gap: '15px' }}>
+            {logs.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '100px 0', color: '#94a3b8' }}>
+                <AlertTriangle size={48} style={{ marginBottom: '20px', opacity: 0.3 }} />
+                <p style={{ fontWeight: '700' }}>No se han registrado errores por ahora.</p>
+              </div>
+            ) : (
+              logs.map((log) => (
+                <div key={log.id} style={{ backgroundColor: 'white', borderRadius: '20px', border: '1px solid #eef2f2', overflow: 'hidden' }}>
+                  <div 
+                    onClick={() => setExpandedLog(expandedLog === log.id ? null : log.id)}
+                    style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ width: '40px', height: '40px', backgroundColor: '#fee2e2', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                        <AlertTriangle size={20} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <h3 style={{ margin: 0, fontWeight: '800', color: '#1A3A3A', fontSize: '14px' }}>{log.error_type}</h3>
+                          <span style={{ fontSize: '11px', backgroundColor: '#f1f5f9', padding: '2px 8px', borderRadius: '6px', color: '#64748b', fontWeight: '700' }}>{log.user_name}</span>
+                        </div>
+                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#4A5568', fontWeight: '600' }}>{log.error_message}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#94a3b8' }}>
+                        <Clock size={14} />
+                        <span style={{ fontSize: '11px', fontWeight: '700' }}>{new Date(log.created_at).toLocaleString('es-AR')}</span>
+                      </div>
+                      {expandedLog === log.id ? <ChevronUp size={20} color="#94a3b8" /> : <ChevronDown size={20} color="#94a3b8" />}
+                    </div>
+                  </div>
+                  
+                  {expandedLog === log.id && (
+                    <div style={{ padding: '0 20px 20px', borderTop: '1px solid #f8fafb' }}>
+                      <div style={{ backgroundColor: '#f8fafb', padding: '15px', borderRadius: '12px', marginTop: '15px' }}>
+                        <p style={{ margin: '0 0 10px', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase' }}>Detalles Técnicos (JSON)</p>
+                        <pre style={{ margin: 0, fontSize: '12px', color: '#1A3A3A', whiteSpace: 'pre-wrap', fontFamily: 'monospace' }}>
+                          {JSON.stringify(log.details, null, 2)}
+                        </pre>
+                      </div>
+                      <p style={{ margin: '15px 0 0', fontSize: '11px', color: '#94a3b8', fontWeight: '600' }}>ID de Log: {log.id} · ID Usuario: {log.user_id}</p>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <AnimatePresence>

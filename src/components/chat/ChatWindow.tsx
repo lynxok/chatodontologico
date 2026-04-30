@@ -3,6 +3,7 @@ import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizo
 import { notifyNewMessage } from '../../lib/notifications';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { logError } from '../../lib/logger';
 
 interface Message {
   id: string;
@@ -146,7 +147,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
       file_type: fileData?.type
     });
 
-    if (error) toast.error('Error al enviar mensaje');
+    if (error) {
+      toast.error('Error al enviar mensaje');
+      await logError('message_send_failure', error.message, currentUser, {
+        recipient_id: isBroadcast ? 'broadcast' : targetId,
+        content: messageContent,
+        is_broadcast: isBroadcast
+      });
+    }
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,6 +198,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     } catch (error: any) {
       console.error('Error al subir archivo:', error);
       toast.error('Error: ' + error.message);
+      await logError('file_upload_failure', error.message, currentUser, {
+        file_name: file.name,
+        file_size: file.size,
+        file_type: file.type
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
