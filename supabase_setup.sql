@@ -44,6 +44,7 @@ create table if not exists public.messages (
     sender_name text,
     content text not null,
     is_broadcast boolean default false,
+    read_at timestamp with time zone,
     created_at timestamp with time zone default timezone('utc'::text, now())
 );
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck } from 'lucide-react';
 import { notifyNewMessage } from '../../lib/notifications';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ interface Message {
   file_url?: string;
   file_name?: string;
   file_type?: string;
+  read_at?: string | null;
 }
 
 interface ChatWindowProps {
@@ -45,30 +46,35 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     markAsRead();
 
     const channel = supabase
-      .channel('public_messages_v10')
+      .channel('public_messages_v11')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: '*', schema: 'public', table: 'messages' },
         (payload) => {
-          const msg = payload.new as Message;
-          const isRelevant = isBroadcast
-            ? msg.is_broadcast
-            : (!msg.is_broadcast && (
-                (
-                  (msg.sender_id === target?.id || msg.sender_id === target?.username) &&
-                  (msg.recipient_id === currentUser.id || msg.recipient_id === currentUser.username)
-                ) ||
-                (
-                  (msg.sender_id === currentUser.id || msg.sender_id === currentUser.username) &&
-                  (msg.recipient_id === target?.id || msg.recipient_id === target?.username)
-                )
-              ));
+          if (payload.eventType === 'INSERT') {
+            const msg = payload.new as Message;
+            const isRelevant = isBroadcast
+              ? msg.is_broadcast
+              : (!msg.is_broadcast && (
+                  (
+                    (msg.sender_id === target?.id || msg.sender_id === target?.username) &&
+                    (msg.recipient_id === currentUser.id || msg.recipient_id === currentUser.username)
+                  ) ||
+                  (
+                    (msg.sender_id === currentUser.id || msg.sender_id === currentUser.username) &&
+                    (msg.recipient_id === target?.id || msg.recipient_id === target?.username)
+                  )
+                ));
 
-          if (isRelevant) {
-            setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
-            if (msg.sender_id !== currentUser.id && msg.sender_id !== currentUser.username) {
-              markAsRead();
+            if (isRelevant) {
+              setMessages(prev => prev.find(m => m.id === msg.id) ? prev : [...prev, msg]);
+              if (msg.sender_id !== currentUser.id && msg.sender_id !== currentUser.username) {
+                markAsRead();
+              }
             }
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedMsg = payload.new as Message;
+            setMessages(prev => prev.map(m => m.id === updatedMsg.id ? updatedMsg : m));
           }
         }
       )
@@ -256,7 +262,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
                     )
                   ) : msg.content}
                 </div>
-                <span style={{ fontSize: '10px', color: '#94a3b8', marginTop: '6px', marginSide: '4px', fontWeight: '700', textTransform: 'uppercase' }}>{time}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>{time}</span>
+                  {isMe && !isBroadcast && (
+                    <div style={{ display: 'flex', color: msg.read_at ? '#0ABAB5' : '#94a3b8' }}>
+                      {msg.read_at ? <CheckCheck size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );

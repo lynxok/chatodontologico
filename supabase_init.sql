@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS public.messages (
     recipient_id TEXT, -- using username or id, null if broadcast
     content TEXT NOT NULL,
     is_broadcast BOOLEAN DEFAULT false,
+    read_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

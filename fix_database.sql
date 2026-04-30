@@ -6,6 +6,7 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS file_url TEXT;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS file_name TEXT;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS file_type TEXT;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS read_at TIMESTAMP WITH TIME ZONE;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
 
 -- 2. Políticas de Storage para el bucket "chat-attachments"
 -- Asegúrate de que el bucket "chat-attachments" exista en Storage y sea PÚBLICO.
