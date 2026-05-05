@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck, AlertCircle } from 'lucide-react';
 import { notifyNewMessage } from '../../lib/notifications';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -17,6 +17,7 @@ interface Message {
   file_name?: string;
   file_type?: string;
   read_at?: string | null;
+  status?: 'sending' | 'sent' | 'error';
 }
 
 interface ChatWindowProps {
@@ -136,8 +137,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     const messageContent = content.trim();
     setInputValue('');
 
+    const tempId = crypto.randomUUID();
+    const tempMsg: Message = {
+      id: tempId,
+      sender_id: currentUser.id,
+      sender_name: currentUser.display_name,
+      content: messageContent || `Envió un archivo: ${fileData?.name}`,
+      created_at: new Date().toISOString(),
+      is_broadcast: isBroadcast,
+      recipient_id: isBroadcast ? undefined : targetId,
+      file_url: fileData?.url,
+      file_name: fileData?.name,
+      file_type: fileData?.type,
+      status: 'sending'
+    };
+
+    setMessages(prev => [...prev, tempMsg]);
+
     const { error } = await supabase.from('messages').insert({
-      sender_id: currentUser.id, // Usar ID siempre
+      sender_id: currentUser.id,
       sender_name: currentUser.display_name,
       recipient_id: isBroadcast ? null : targetId,
       content: messageContent || `Envió un archivo: ${fileData?.name}`,
@@ -148,13 +166,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     });
 
     if (error) {
+      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
       toast.error('Error al enviar mensaje');
       await logError('message_send_failure', error.message, currentUser, {
         recipient_id: isBroadcast ? 'broadcast' : targetId,
         content: messageContent,
         is_broadcast: isBroadcast
       });
+    } else {
+      // Remover el mensaje temporal, el listener de realtime agregará el real
+      setMessages(prev => prev.filter(m => m.id !== tempId));
     }
+  };
+
+  const retryMessage = (msg: Message) => {
+    setMessages(prev => prev.filter(m => m.id !== msg.id));
+    sendMessage(msg.content, msg.file_url ? { url: msg.file_url, name: msg.file_name || '', type: msg.file_type || '' } : undefined);
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,11 +302,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
                     )
                   ) : msg.content}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
-                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>{time}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
+                    {msg.status === 'sending' ? 'Enviando...' : (msg.status === 'error' ? 'Fallo el envío' : time)}
+                  </span>
                   {isMe && !isBroadcast && (
                     <div style={{ display: 'flex', color: msg.read_at ? '#0ABAB5' : '#94a3b8' }}>
-                      {msg.read_at ? <CheckCheck size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />}
+                      {msg.status === 'sending' ? (
+                        <RefreshCcw size={12} className="animate-spin" />
+                      ) : msg.status === 'error' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <AlertCircle size={14} color="#ef4444" />
+                          <button 
+                            onClick={() => retryMessage(msg)}
+                            style={{ background: 'none', border: 'none', color: '#0ABAB5', fontSize: '10px', fontWeight: '800', cursor: 'pointer', padding: 0, textDecoration: 'underline' }}
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      ) : (
+                        msg.read_at ? <CheckCheck size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />
+                      )}
                     </div>
                   )}
                 </div>

@@ -2,7 +2,7 @@ import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
 import { Login } from './components/Login';
 import { ChatModule } from './components/chat/ChatModule';
 import { AdminPanel } from './components/admin/AdminPanel';
-import { LogOut, Shield, MessageSquare, AlertCircle, Terminal } from 'lucide-react';
+import { LogOut, Shield, MessageSquare, AlertCircle, Terminal, WifiOff } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { UserSettings } from './components/UserSettings';
 import { supabase } from './lib/supabase';
@@ -34,6 +34,20 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
   const [version, setVersion] = useState('');
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -142,6 +156,32 @@ function App() {
       <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', position: 'relative', overflow: 'hidden', fontFamily: "'Outfit', sans-serif" }}>
         <div className="mesh-gradient" />
         <Toaster position="bottom-right" expand={false} richColors />
+        
+        {isOffline && (
+          <div style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            backgroundColor: '#ef4444', 
+            color: 'white', 
+            textAlign: 'center', 
+            padding: '8px', 
+            zIndex: 9999, 
+            fontSize: '13px', 
+            fontWeight: '800', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '10px',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+            animation: 'slideDown 0.3s ease-out'
+          }}>
+            <WifiOff size={16} />
+            SIN CONEXIÓN A INTERNET - El chat no funcionará correctamente
+          </div>
+        )}
+
         <UserSettings user={user} isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} onLogout={handleLogout} onUpdate={setUser} />
 
         <div className="glass-container" style={{ 
