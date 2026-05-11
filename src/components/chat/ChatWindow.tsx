@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck, AlertCircle } from 'lucide-react';
 import { notifyNewMessage } from '../../lib/notifications';
-import { supabase } from '../../lib/supabase';
+import { supabase, CHANNELS } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { logError } from '../../lib/logger';
 
@@ -48,7 +48,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     markAsRead();
 
     const channel = supabase
-      .channel('public_messages_v11')
+      .channel(CHANNELS.MESSAGES)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' },
@@ -89,12 +89,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     if (!currentUser.id) return;
 
     if (isBroadcast) {
-      // Para difusión, marcamos todos los mensajes de difusión como leídos
-      await supabase
+      // Para difusión, registramos la lectura individual en broadcast_reads
+      // Buscamos mensajes de difusión que el usuario aún no haya marcado como leídos
+      const { data: unreadBroadcasts } = await supabase
         .from('messages')
-        .update({ read_at: new Date().toISOString() })
-        .eq('is_broadcast', true)
-        .is('read_at', null);
+        .select('id')
+        .eq('is_broadcast', true);
+
+      if (unreadBroadcasts && unreadBroadcasts.length > 0) {
+        const readPromises = unreadBroadcasts.map(msg => 
+          supabase.from('broadcast_reads').upsert({ 
+            message_id: msg.id, 
+            user_id: currentUser.id 
+          }, { onConflict: 'message_id,user_id' })
+        );
+        await Promise.all(readPromises);
+      }
     } else if (targetId) {
       // Para chats privados, marcamos los mensajes de ese contacto
       await supabase

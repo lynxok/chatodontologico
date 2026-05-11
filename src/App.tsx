@@ -5,7 +5,7 @@ import { AdminPanel } from './components/admin/AdminPanel';
 import { LogOut, Shield, MessageSquare, AlertCircle, Terminal, WifiOff } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { UserSettings } from './components/UserSettings';
-import { supabase } from './lib/supabase';
+import { supabase, CHANNELS } from './lib/supabase';
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean, error: Error | null }> {
   constructor(props: { children: ReactNode }) {
@@ -64,7 +64,7 @@ function App() {
   useEffect(() => {
     if (!user?.id) return;
     
-    const channel = supabase.channel('presence_layer', { 
+    const channel = supabase.channel(CHANNELS.PRESENCE, { 
       config: { 
         presence: { key: user.id } 
       } 

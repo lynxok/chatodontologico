@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Megaphone, Search, Circle } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { supabase, CHANNELS } from '../../lib/supabase';
 
 interface Profile {
   id: string;
@@ -32,7 +32,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
     // Suscribirse a nuevos mensajes y actualizaciones de lectura
     const channel = supabase
-      .channel('sidebar_updates_v5')
+      .channel(CHANNELS.SIDEBAR)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'messages' }, // Escuchar TODO (Insert, Update, Delete)
@@ -57,20 +57,43 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const fetchUnreadCounts = async () => {
     if (!currentUser?.username) return;
 
-    const { data, error } = await supabase
+    // 1. Mensajes privados no leídos
+    const { data: privateMsgs } = await supabase
       .from('messages')
       .select('sender_id, is_broadcast')
-      .or(`recipient_id.eq.${currentUser.username},recipient_id.eq.${currentUser.id},is_broadcast.eq.true`)
+      .or(`recipient_id.eq.${currentUser.username},recipient_id.eq.${currentUser.id}`)
+      .is('is_broadcast', false)
       .is('read_at', null);
 
-    if (!error && data) {
-      const counts: Record<string, number> = {};
-      data.forEach(msg => {
-        const key = msg.is_broadcast ? 'broadcast' : msg.sender_id;
-        counts[key] = (counts[key] || 0) + 1;
+    // 2. Mensajes de difusión que no he leído (usando broadcast_reads)
+    // Primero obtenemos todos los IDs de mensajes de difusión
+    const { data: broadcasts } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('is_broadcast', true);
+
+    // Luego obtenemos los que YA leí
+    const { data: readBroadcasts } = await supabase
+      .from('broadcast_reads')
+      .select('message_id')
+      .eq('user_id', currentUser.id);
+
+    const readIds = new Set(readBroadcasts?.map(r => r.message_id) || []);
+    const unreadBroadcastCount = (broadcasts?.filter(b => !readIds.has(b.id)).length) || 0;
+
+    const counts: Record<string, number> = {};
+    
+    if (privateMsgs) {
+      privateMsgs.forEach(msg => {
+        counts[msg.sender_id] = (counts[msg.sender_id] || 0) + 1;
       });
-      setUnreadCounts(counts);
     }
+
+    if (unreadBroadcastCount > 0) {
+      counts['broadcast'] = unreadBroadcastCount;
+    }
+
+    setUnreadCounts(counts);
   };
 
   const filteredProfiles = profiles.filter(p => 
