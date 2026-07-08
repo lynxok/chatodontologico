@@ -93,7 +93,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       alignItems: 'center', 
       justifyContent: 'center', 
       minHeight: '100vh', 
-      backgroundColor: '#f0f7f7',
+      backgroundColor: 'transparent',
       padding: '20px'
     }}>
       <div style={{

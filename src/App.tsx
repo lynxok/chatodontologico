@@ -177,7 +177,7 @@ function App() {
   if (!user) {
     return (
       <ErrorBoundary>
-        <div style={{ minHeight: '100vh', backgroundColor: '#f0f4f5' }}>
+        <div style={{ minHeight: '100vh', backgroundColor: 'transparent' }}>
           <Toaster position="bottom-right" expand={false} richColors /><Login onLogin={handleLogin} />
         </div>
       </ErrorBoundary>
@@ -188,7 +188,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', position: 'relative', overflow: 'hidden', fontFamily: "'Outfit', sans-serif" }}>
+      <div style={{ height: '100vh', width: '100vw', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '15px', position: 'relative', overflow: 'hidden', fontFamily: "'Outfit', sans-serif", backgroundColor: 'transparent' }}>
         <div className="mesh-gradient" />
         <Toaster position="bottom-right" expand={false} richColors />
         
