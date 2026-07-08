@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Notification, screen, nativeImage, Tray, Menu } from 'electron';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
@@ -17,47 +18,58 @@ let tray: Tray | null = null;
 let isQuitting = false;
 
 function createTray() {
-  const iconPath = app.isPackaged
-    ? path.join(distPath, 'icon.png')
-    : path.join(__dirname, '../public/logo ls.jpeg'); // Fallback de logo existente
+  try {
+    let iconPath = app.isPackaged
+      ? path.join(distPath, 'icon.png')
+      : path.join(__dirname, '../public/logo ls.jpeg');
 
-  // Usar nativeImage para redimensionar el icono para el tray de forma óptima
-  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
-  tray = new Tray(trayIcon);
+    // Fallback si no existe icon.png en producción
+    if (app.isPackaged && !fs.existsSync(iconPath)) {
+      iconPath = path.join(distPath, 'logo_ls.jpeg');
+    }
 
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Mostrar LS Chat',
-      click: () => {
-        if (win) {
+    const trayIcon = nativeImage.createFromPath(iconPath);
+    // Solo redimensionar si la imagen no está vacía para evitar errores
+    const resizedIcon = trayIcon.isEmpty() ? trayIcon : trayIcon.resize({ width: 16, height: 16 });
+    
+    tray = new Tray(resizedIcon.isEmpty() ? nativeImage.createEmpty() : resizedIcon);
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: 'Mostrar LS Chat',
+        click: () => {
+          if (win) {
+            win.show();
+            win.focus();
+          }
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Salir',
+        click: () => {
+          isQuitting = true;
+          app.quit();
+        }
+      }
+    ]);
+
+    tray.setToolTip('LS Odontología - Chat');
+    tray.setContextMenu(contextMenu);
+
+    tray.on('double-click', () => {
+      if (win) {
+        if (win.isVisible()) {
+          win.hide();
+        } else {
           win.show();
           win.focus();
         }
       }
-    },
-    { type: 'separator' },
-    {
-      label: 'Salir',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      }
-    }
-  ]);
-
-  tray.setToolTip('LS Odontología - Chat');
-  tray.setContextMenu(contextMenu);
-
-  tray.on('double-click', () => {
-    if (win) {
-      if (win.isVisible()) {
-        win.hide();
-      } else {
-        win.show();
-        win.focus();
-      }
-    }
-  });
+    });
+  } catch (err) {
+    log.error('Error al crear el System Tray:', err);
+  }
 }
 
 function createWindow() {
@@ -69,6 +81,8 @@ function createWindow() {
     height: 800,
     title: 'LS Odontología - Chat',
     backgroundColor: '#F8FAFA',
+    frame: false,
+    transparent: true,
     webPreferences: {
       preload: preloadPath,
       nodeIntegration: false,
@@ -99,6 +113,25 @@ function createWindow() {
     autoUpdater.checkForUpdatesAndNotify().catch(err => log.error(err));
   }
 }
+
+// ── IPC Handlers for Window Controls ─────────────────────────────────
+ipcMain.on('window-minimize', () => {
+  if (win) win.minimize();
+});
+
+ipcMain.on('window-maximize', () => {
+  if (win) {
+    if (win.isMaximized()) {
+      win.unmaximize();
+    } else {
+      win.maximize();
+    }
+  }
+});
+
+ipcMain.on('window-close', () => {
+  if (win) win.hide();
+});
 
 // ── IPC Handler for Admin Debug Console ──────────────────────────────
 ipcMain.on('open-dev-tools', () => {

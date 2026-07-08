@@ -9,9 +9,12 @@ contextBridge.exposeInMainWorld('electron', {
   setOverlayIcon: (dataUrl: string | null) => ipcRenderer.send('set-overlay-icon', dataUrl),
   checkForUpdates: () => ipcRenderer.send('check-for-updates'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  minimizeWindow: () => ipcRenderer.send('window-minimize'),
+  maximizeWindow: () => ipcRenderer.send('window-maximize'),
+  closeWindow: () => ipcRenderer.send('window-close'),
   // Conservamos las demás funciones si existen
   send: (channel: string, data: any) => {
-    let validChannels = ['toMain', 'open-dev-tools', 'notify-message', 'focus-window', 'check-for-updates', 'show-notification'];
+    let validChannels = ['toMain', 'open-dev-tools', 'notify-message', 'focus-window', 'check-for-updates', 'show-notification', 'window-minimize', 'window-maximize', 'window-close'];
     if (validChannels.includes(channel)) {
       ipcRenderer.send(channel, data);
     }

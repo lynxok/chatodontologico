@@ -1,8 +1,8 @@
-import { useState, useEffect, Component, ErrorInfo, ReactNode } from 'react';
+import { useState, useEffect, Component, ErrorInfo, ReactNode, useRef } from 'react';
 import { Login } from './components/Login';
 import { ChatModule } from './components/chat/ChatModule';
 import { AdminPanel } from './components/admin/AdminPanel';
-import { LogOut, Shield, MessageSquare, AlertCircle, Terminal, WifiOff } from 'lucide-react';
+import { LogOut, Shield, MessageSquare, AlertCircle, Terminal, WifiOff, Minus, Square, X } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { UserSettings } from './components/UserSettings';
 import { supabase, CHANNELS } from './lib/supabase';
@@ -231,14 +231,25 @@ function App() {
           zIndex: 10
         }}>
           
-          <div style={{ height: '54px', background: 'rgba(26, 58, 58, 0.8)', backdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px', borderBottom: '1px solid rgba(255,255,255,0.05)', zIndex: 20 }}>
+          <div style={{ 
+            height: '54px', 
+            background: 'rgba(26, 58, 58, 0.8)', 
+            backdropFilter: 'blur(10px)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            padding: '0 24px', 
+            borderBottom: '1px solid rgba(255,255,255,0.05)', 
+            zIndex: 20,
+            WebkitAppRegion: 'drag'
+          } as any}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
               <div style={{ fontSize: '11px', color: 'rgba(129, 216, 208, 0.6)', fontWeight: '900', letterSpacing: '2px' }}>
                 {version ? `LYNX V${version}` : 'LYNX CHAT'}
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', WebkitAppRegion: 'no-drag' } as any}>
               {/* Selector de semáforo de boxes */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '4px 10px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                 <span style={{ 
@@ -281,6 +292,50 @@ function App() {
 
               <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
               <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer' }}><LogOut size={16} /></button>
+
+              {/* Controles de Ventana Electrón */}
+              <div style={{ width: '1px', height: '20px', backgroundColor: 'rgba(255,255,255,0.1)' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button 
+                  onClick={() => {
+                    // @ts-ignore
+                    if (window.electron && window.electron.minimizeWindow) {
+                      // @ts-ignore
+                      window.electron.minimizeWindow();
+                    }
+                  }} 
+                  title="Minimizar"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Minus size={14} />
+                </button>
+                <button 
+                  onClick={() => {
+                    // @ts-ignore
+                    if (window.electron && window.electron.maximizeWindow) {
+                      // @ts-ignore
+                      window.electron.maximizeWindow();
+                    }
+                  }} 
+                  title="Maximizar"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Square size={12} />
+                </button>
+                <button 
+                  onClick={() => {
+                    // @ts-ignore
+                    if (window.electron && window.electron.closeWindow) {
+                      // @ts-ignore
+                      window.electron.closeWindow();
+                    }
+                  }} 
+                  title="Cerrar"
+                  style={{ background: 'rgba(239, 68, 68, 0.2)', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           </div>
 
