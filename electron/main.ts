@@ -80,7 +80,6 @@ function createWindow() {
     width: 1200,
     height: 800,
     title: 'LS Odontología - Chat',
-    backgroundColor: '#F8FAFA',
     frame: false,
     transparent: true,
     webPreferences: {
