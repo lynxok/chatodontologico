@@ -61,6 +61,13 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, isOpen, onClos
 
   const handleCheckUpdates = () => {
     // @ts-ignore
+    if (updateStatus === 'downloaded' && window.electron && window.electron.installUpdate) {
+      // @ts-ignore
+      window.electron.installUpdate();
+      return;
+    }
+
+    // @ts-ignore
     if (window.electron && window.electron.checkForUpdates) {
       setUpdateStatus('checking');
       // @ts-ignore
@@ -195,16 +202,18 @@ export const UserSettings: React.FC<UserSettingsProps> = ({ user, isOpen, onClos
                         style={{ 
                           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                           padding: '15px', borderRadius: '15px', border: '1.5px solid #eef2f2', 
-                          backgroundColor: '#f8fafb', color: '#1A3A3A', fontWeight: '700', cursor: 'pointer',
+                          backgroundColor: updateStatus === 'downloaded' ? '#0ABAB5' : '#f8fafb', 
+                          color: updateStatus === 'downloaded' ? 'white' : '#1A3A3A', 
+                          fontWeight: '700', cursor: 'pointer',
                           transition: 'all 0.2s'
                         }}
-                        onMouseOver={e => e.currentTarget.style.backgroundColor = '#eef2f2'}
-                        onMouseOut={e => e.currentTarget.style.backgroundColor = '#f8fafb'}
+                        onMouseOver={e => e.currentTarget.style.backgroundColor = updateStatus === 'downloaded' ? '#099d9a' : '#eef2f2'}
+                        onMouseOut={e => e.currentTarget.style.backgroundColor = updateStatus === 'downloaded' ? '#0ABAB5' : '#f8fafb'}
                       >
                         <RefreshCcw size={18} className={updateStatus === 'checking' || updateStatus === 'downloading' ? 'animate-spin' : ''} style={{ animation: (updateStatus === 'checking' || updateStatus === 'downloading') ? 'spin 1s linear infinite' : 'none' }} />
                         {updateStatus === 'checking' ? 'Buscando...' : 
                          updateStatus === 'downloading' ? 'Descargando...' :
-                         updateStatus === 'downloaded' ? 'Listo para instalar' :
+                         updateStatus === 'downloaded' ? 'Instalar Actualización 🚀' :
                          'Buscar Actualización'}
                       </button>
                       <style>{`

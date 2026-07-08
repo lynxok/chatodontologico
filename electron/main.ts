@@ -235,6 +235,11 @@ ipcMain.on('check-for-updates', () => {
   });
 });
 
+ipcMain.on('install-update', () => {
+  isQuitting = true;
+  autoUpdater.quitAndInstall();
+});
+
 autoUpdater.on('update-available', (info) => {
   if (win) win.webContents.send('update-available', info);
 });
