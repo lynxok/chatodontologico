@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck, AlertCircle } from 'lucide-react';
+import { Send, Paperclip, MoreVertical, FileText, Image as ImageIcon, MoreHorizontal, X, RefreshCcw, Check, CheckCheck, AlertCircle, Mic, Square, Trash2 } from 'lucide-react';
 import { notifyNewMessage } from '../../lib/notifications';
 import { supabase, CHANNELS } from '../../lib/supabase';
 import { toast } from 'sonner';
@@ -32,6 +32,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
   const [isUploading, setIsUploading] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estados para grabación de audio
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const isBroadcast = target === 'broadcast';
   const targetName = isBroadcast ? 'Difusión General' : target?.display_name ?? '';
@@ -82,15 +89,75 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // ── Lógica de Reenvío Automático Offline ───────────────────────────
+    const processOfflineQueue = async () => {
+      const queueJson = localStorage.getItem('ls_chat_offline_queue');
+      if (!queueJson) return;
+
+      try {
+        const queue: Message[] = JSON.parse(queueJson);
+        if (queue.length === 0) return;
+
+        toast.info(`Reenviando ${queue.length} mensaje(s) en cola offline...`);
+
+        // Enviar uno a uno
+        for (const msg of queue) {
+          const { error } = await supabase.from('messages').insert({
+            sender_id: msg.sender_id,
+            sender_name: msg.sender_name,
+            recipient_id: msg.recipient_id,
+            content: msg.content,
+            is_broadcast: msg.is_broadcast,
+            file_url: msg.file_url,
+            file_name: msg.file_name,
+            file_type: msg.file_type
+          });
+
+          if (error) {
+            console.error('Error al reenviar mensaje de la cola offline:', error);
+            // Si da error, lo dejamos para el siguiente ciclo/intento y paramos para no romper el orden
+            return;
+          }
+        }
+
+        // Vaciar cola y limpiar mensajes temporales de la UI
+        localStorage.removeItem('ls_chat_offline_queue');
+        setMessages(prev => prev.filter(m => m.status !== 'offline-queued'));
+        toast.success('Mensajes en cola offline enviados con éxito');
+        fetchMessages();
+      } catch (err) {
+        console.error('Error al parsear cola offline:', err);
+      }
+    };
+
+    const handleOnline = () => {
+      processOfflineQueue();
+    };
+
+    window.addEventListener('online', handleOnline);
+    // Ejecutar inmediatamente si ya estamos online
+    if (navigator.onLine) {
+      processOfflineQueue();
+    }
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener('online', handleOnline);
+    };
   }, [targetId, isBroadcast, currentUser.id]);
+
+  // Limpiar timers de grabación al desmontar
+  useEffect(() => {
+    return () => {
+      if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    };
+  }, []);
 
   const markAsRead = async () => {
     if (!currentUser.id) return;
 
     if (isBroadcast) {
       // Para difusión, registramos la lectura individual en broadcast_reads
-      // Buscamos mensajes de difusión que el usuario aún no haya marcado como leídos
       const { data: unreadBroadcasts } = await supabase
         .from('messages')
         .select('id')
@@ -135,7 +202,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
       query = query.or(conditions.join(','));
     }
     const { data, error } = await query;
-    if (!error) setMessages(data || []);
+    if (!error) {
+      // Concatenar mensajes de la cola offline correspondientes a esta conversación
+      const queueJson = localStorage.getItem('ls_chat_offline_queue');
+      let offlineMsgs: Message[] = [];
+      if (queueJson) {
+        try {
+          const queue: Message[] = JSON.parse(queueJson);
+          offlineMsgs = queue.filter(m => 
+            isBroadcast ? m.is_broadcast : (m.recipient_id === targetId && !m.is_broadcast)
+          );
+        } catch (e) {
+          console.error(e);
+        }
+      }
+      setMessages(prev => [...(data || []), ...offlineMsgs]);
+    }
   };
 
   useEffect(() => {
@@ -152,23 +234,37 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
       id: tempId,
       sender_id: currentUser.id,
       sender_name: currentUser.display_name,
-      content: messageContent || `Envió un archivo: ${fileData?.name}`,
+      content: messageContent || (fileData?.type?.startsWith('audio/') ? '🎙️ Nota de voz' : `Envió un archivo: ${fileData?.name}`),
       created_at: new Date().toISOString(),
       is_broadcast: isBroadcast,
       recipient_id: isBroadcast ? undefined : targetId,
       file_url: fileData?.url,
       file_name: fileData?.name,
       file_type: fileData?.type,
-      status: 'sending'
+      status: navigator.onLine ? 'sending' : 'offline-queued'
     };
 
     setMessages(prev => [...prev, tempMsg]);
+
+    // Si estamos sin conexión, encolar directamente
+    if (!navigator.onLine) {
+      const queueJson = localStorage.getItem('ls_chat_offline_queue') || '[]';
+      try {
+        const queue = JSON.parse(queueJson);
+        queue.push(tempMsg);
+        localStorage.setItem('ls_chat_offline_queue', JSON.stringify(queue));
+        toast.warning('Mensaje guardado en la cola offline');
+      } catch (e) {
+        console.error(e);
+      }
+      return;
+    }
 
     const { error } = await supabase.from('messages').insert({
       sender_id: currentUser.id,
       sender_name: currentUser.display_name,
       recipient_id: isBroadcast ? null : targetId,
-      content: messageContent || `Envió un archivo: ${fileData?.name}`,
+      content: messageContent || (fileData?.type?.startsWith('audio/') ? '🎙️ Nota de voz' : `Envió un archivo: ${fileData?.name}`),
       is_broadcast: isBroadcast,
       file_url: fileData?.url,
       file_name: fileData?.name,
@@ -176,13 +272,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     });
 
     if (error) {
-      setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
-      toast.error('Error al enviar mensaje');
-      await logError('message_send_failure', error.message, currentUser, {
-        recipient_id: isBroadcast ? 'broadcast' : targetId,
-        content: messageContent,
-        is_broadcast: isBroadcast
-      });
+      // Si la inserción física falla (por ejemplo, micro-cortes no detectados por navigator.onLine)
+      // Guardar el mensaje en la cola offline en lugar de marcar como error definitivo
+      const queueJson = localStorage.getItem('ls_chat_offline_queue') || '[]';
+      try {
+        const queue = JSON.parse(queueJson);
+        tempMsg.status = 'offline-queued';
+        queue.push(tempMsg);
+        localStorage.setItem('ls_chat_offline_queue', JSON.stringify(queue));
+        setMessages(prev => prev.map(m => m.id === tempId ? tempMsg : m));
+        toast.warning('Fallo de red. Mensaje guardado en cola offline.');
+      } catch (e) {
+        setMessages(prev => prev.map(m => m.id === tempId ? { ...m, status: 'error' } : m));
+        toast.error('Error al enviar mensaje');
+        await logError('message_send_failure', error.message, currentUser, {
+          recipient_id: isBroadcast ? 'broadcast' : targetId,
+          content: messageContent,
+          is_broadcast: isBroadcast
+        });
+      }
     } else {
       // Remover el mensaje temporal, el listener de realtime agregará el real
       setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -246,6 +354,94 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
     }
   };
 
+  // ── Lógica de Grabación de Notas de Voz ────────────────────────────────
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      
+      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop()); // Apagar micrófono
+
+        if (audioChunksRef.current.length === 0 || audioBlob.size < 100) return;
+
+        setIsUploading(true);
+        try {
+          const fileName = `audio_${Date.now()}.webm`;
+          const filePath = `${currentUser.id}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('chat-attachments')
+            .upload(filePath, audioBlob, { contentType: 'audio/webm' });
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('chat-attachments')
+            .getPublicUrl(filePath);
+
+          await sendMessage('', {
+            url: publicUrl,
+            name: 'Nota de voz.webm',
+            type: 'audio/webm'
+          });
+
+          toast.success('Nota de voz enviada');
+        } catch (error: any) {
+          console.error('Error al subir nota de voz:', error);
+          toast.error('Error al subir audio: ' + error.message);
+        } finally {
+          setIsUploading(false);
+        }
+      };
+
+      mediaRecorder.start(250); // Enviar datos cada 250ms
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (err) {
+      console.error('Error de acceso al micrófono:', err);
+      toast.error('No se pudo acceder al micrófono');
+    }
+  };
+
+  const stopRecording = (shouldSend = true) => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      if (!shouldSend) {
+        // Si cancelamos, vaciamos los chunks para que onstop los ignore
+        audioChunksRef.current = [];
+      }
+      mediaRecorderRef.current.stop();
+    }
+    
+    setIsRecording(false);
+    setRecordingTime(0);
+  };
+
+  const formatRecordingTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+  };
+
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); sendMessage(inputValue); };
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(inputValue); } };
 
@@ -276,10 +472,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
         {messages.map((msg) => {
           const isMe = msg.sender_id === currentUser.id || msg.sender_id === currentUser.username;
           const isImage = msg.file_type?.startsWith('image/');
+          const isAudio = msg.file_type?.startsWith('audio/');
+          const isOfflineQueued = msg.status === 'offline-queued';
           const time = new Date(msg.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 
           return (
-            <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '12px', animation: 'fadeIn 0.3s ease-out' }}>
+            <div key={msg.id} style={{ display: 'flex', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', gap: '12px', animation: 'fadeIn 0.3s ease-out', opacity: isOfflineQueued ? 0.7 : 1 }}>
               {!isMe && (
                 <div style={{ width: '32px', height: '32px', borderRadius: '10px', backgroundColor: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '12px', color: '#0ABAB5', flexShrink: 0, boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}>
                   {(msg.sender_name || '?').charAt(0).toUpperCase()}
@@ -289,8 +487,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
                 <div style={{ 
                   padding: msg.file_url && isImage ? '8px' : '12px 18px', 
                   borderRadius: isMe ? '22px 22px 4px 22px' : '22px 22px 22px 4px', 
-                  background: isMe ? 'linear-gradient(135deg, #0ABAB5 0%, #08938F 100%)' : 'white', 
-                  color: isMe ? 'white' : '#1A3A3A', 
+                  background: isOfflineQueued ? '#6b7280' : (isMe ? 'linear-gradient(135deg, #0ABAB5 0%, #08938F 100%)' : 'white'), 
+                  color: (isOfflineQueued || isMe) ? 'white' : '#1A3A3A', 
                   fontSize: '14.5px', 
                   fontWeight: 500, 
                   boxShadow: isMe ? '0 8px 20px rgba(10, 186, 181, 0.2)' : '0 4px 15px rgba(0,0,0,0.03)',
@@ -299,6 +497,10 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
                   {msg.file_url ? (
                     isImage ? (
                       <img src={msg.file_url} alt="adjunto" style={{ maxWidth: '100%', borderRadius: '14px', display: 'block', cursor: 'pointer' }} onClick={() => window.open(msg.file_url, '_blank')} />
+                    ) : isAudio ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '2px 0' }}>
+                        <audio controls src={msg.file_url} style={{ height: '36px', maxWidth: '240px' }} />
+                      </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '4px' }}>
                         <div style={{ padding: '10px', borderRadius: '12px', backgroundColor: isMe ? 'rgba(255,255,255,0.2)' : '#f0f7f7', color: isMe ? 'white' : '#0ABAB5' }}>
@@ -314,12 +516,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                   <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>
-                    {msg.status === 'sending' ? 'Enviando...' : (msg.status === 'error' ? 'Fallo el envío' : time)}
+                    {isOfflineQueued ? 'En cola offline' : (msg.status === 'sending' ? 'Enviando...' : (msg.status === 'error' ? 'Fallo el envío' : time))}
                   </span>
                   {isMe && !isBroadcast && (
                     <div style={{ display: 'flex', color: msg.read_at ? '#0ABAB5' : '#94a3b8' }}>
                       {msg.status === 'sending' ? (
                         <RefreshCcw size={12} className="animate-spin" />
+                      ) : isOfflineQueued ? (
+                        <WifiOff size={12} style={{ color: '#94a3b8' }} />
                       ) : msg.status === 'error' ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                           <AlertCircle size={14} color="#ef4444" />
@@ -356,14 +560,43 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({ currentUser, target, onl
       </div>
 
       <div style={{ padding: '15px 30px 30px', backgroundColor: 'transparent' }}>
-        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'white', borderRadius: '22px', padding: '8px 8px 8px 20px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid rgba(26, 58, 58, 0.03)' }}>
-          <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
-          <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="hover-glass" style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUploading ? '#0ABAB5' : '#94a3b8', padding: '10px', borderRadius: '14px' }}>
-            {isUploading ? <RefreshCcw size={20} className="animate-spin" /> : <Paperclip size={20} />}
-          </button>
-          <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo archivo..." : "Escribe un mensaje..."} style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '15px', color: '#1A3A3A', fontWeight: '600' }} />
-          <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '48px', height: '48px', borderRadius: '16px', border: 'none', backgroundColor: (inputValue.trim() && !isUploading) ? '#0ABAB5' : '#f1f5f9', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', boxShadow: (inputValue.trim() && !isUploading) ? '0 6px 15px rgba(10, 186, 181, 0.3)' : 'none' }}><Send size={20} /></button>
-        </form>
+        {isRecording ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', backgroundColor: '#fef2f2', borderRadius: '22px', padding: '12px 20px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid rgba(239, 68, 68, 0.1)' }}>
+            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#ef4444', display: 'inline-block', animation: 'pulse 1s infinite' }}></span>
+            <span style={{ flex: 1, fontSize: '14px', fontWeight: '700', color: '#b91c1c' }}>
+              Grabando nota de voz... {formatRecordingTime(recordingTime)}
+            </span>
+            <button 
+              type="button" 
+              onClick={() => stopRecording(false)} 
+              className="hover-glass"
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '10px', borderRadius: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Trash2 size={20} />
+            </button>
+            <button 
+              type="button" 
+              onClick={() => stopRecording(true)} 
+              style={{ width: '48px', height: '48px', borderRadius: '16px', border: 'none', backgroundColor: '#ef4444', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 6px 15px rgba(239, 68, 68, 0.3)' }}
+            >
+              <Square size={20} />
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'white', borderRadius: '22px', padding: '8px 8px 8px 20px', boxShadow: '0 10px 30px rgba(0,0,0,0.05)', border: '1px solid rgba(26, 58, 58, 0.03)' }}>
+            <input type="file" ref={fileInputRef} style={{ display: 'none' }} onChange={handleFileChange} />
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={isUploading} className="hover-glass" style={{ background: 'none', border: 'none', cursor: 'pointer', color: isUploading ? '#0ABAB5' : '#94a3b8', padding: '10px', borderRadius: '14px' }}>
+                {isUploading ? <RefreshCcw size={20} className="animate-spin" /> : <Paperclip size={20} />}
+              </button>
+              <button type="button" onClick={startRecording} disabled={isUploading} className="hover-glass" style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: '10px', borderRadius: '14px' }}>
+                <Mic size={20} />
+              </button>
+            </div>
+            <input type="text" value={inputValue} onChange={e => setInputValue(e.target.value)} onKeyDown={handleKeyDown} placeholder={isUploading ? "Subiendo archivo..." : "Escribe un mensaje..."} style={{ flex: 1, border: 'none', outline: 'none', backgroundColor: 'transparent', fontSize: '15px', color: '#1A3A3A', fontWeight: '600' }} />
+            <button type="submit" disabled={!inputValue.trim() || isUploading} style={{ width: '48px', height: '48px', borderRadius: '16px', border: 'none', backgroundColor: (inputValue.trim() && !isUploading) ? '#0ABAB5' : '#f1f5f9', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.3s', boxShadow: (inputValue.trim() && !isUploading) ? '0 6px 15px rgba(10, 186, 181, 0.3)' : 'none' }}><Send size={20} /></button>
+          </form>
+        )}
       </div>
     </div>
   );

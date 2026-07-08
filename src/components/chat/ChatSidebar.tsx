@@ -13,6 +13,7 @@ interface ChatSidebarProps {
   onSelectTarget: (target: Profile | 'broadcast') => void;
   selectedTarget: Profile | 'broadcast' | null;
   onlineIds: string[];
+  onlineStates?: Record<string, any>;
   currentUser: any;
 }
 
@@ -20,6 +21,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onSelectTarget, 
   selectedTarget, 
   onlineIds,
+  onlineStates = {},
   currentUser 
 }) => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -211,6 +213,25 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           const isOnline = Array.isArray(onlineIds) && (onlineIds.includes(profile.id) || onlineIds.includes(profile.username));
           const unreadCount = (unreadCounts[profile.username] || 0) + (unreadCounts[profile.id] || 0);
 
+          // Obtener el estado del box del usuario si está conectado
+          const userState = isOnline ? (onlineStates[profile.id] || onlineStates[profile.username] || {}) : {};
+          const boxStatus = userState.box_state || 'available';
+
+          // Asignar colores y etiquetas del semáforo
+          const statusColors = {
+            available: '#22c55e',
+            busy: '#eab308',
+            urgent: '#ef4444'
+          };
+          const statusLabels = {
+            available: 'Disponible',
+            busy: 'Con paciente',
+            urgent: '🔴 URGENTE'
+          };
+
+          const activeColor = statusColors[boxStatus as 'available' | 'busy' | 'urgent'] || '#94a3b8';
+          const activeLabel = isOnline ? (statusLabels[boxStatus as 'available' | 'busy' | 'urgent'] || 'Disponible') : 'Desconectado';
+
           return (
             <div 
               key={profile.id}
@@ -225,7 +246,8 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 display: 'flex', 
                 alignItems: 'center', 
                 justifyContent: 'space-between',
-                boxShadow: isSelected ? '0 10px 25px rgba(0,0,0,0.05)' : 'none'
+                boxShadow: isSelected ? '0 10px 25px rgba(0,0,0,0.05)' : 'none',
+                border: boxStatus === 'urgent' && isOnline ? '1px solid rgba(239, 68, 68, 0.2)' : 'none'
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -234,12 +256,24 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     {profile.display_name.charAt(0)}
                   </div>
                   {isOnline && (
-                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '14px', height: '14px', borderRadius: '50%', backgroundColor: '#22c55e', border: '3px solid white' }}></div>
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: '-2px', 
+                      right: '-2px', 
+                      width: '14px', 
+                      height: '14px', 
+                      borderRadius: '50%', 
+                      backgroundColor: activeColor, 
+                      border: '3px solid white',
+                      animation: boxStatus === 'urgent' ? 'pulse 1s infinite' : 'none'
+                    }}></div>
                   )}
                 </div>
                 <div>
                   <div style={{ fontWeight: 800, color: '#1A3A3A', fontSize: '14px' }}>{profile.display_name}</div>
-                  <div style={{ fontSize: '11px', color: isOnline ? '#22c55e' : '#94a3b8', fontWeight: 700 }}>{isOnline ? 'En línea' : 'Desconectado'}</div>
+                  <div style={{ fontSize: '11px', color: isOnline ? activeColor : '#94a3b8', fontWeight: 700 }}>
+                    {activeLabel}
+                  </div>
                 </div>
               </div>
               

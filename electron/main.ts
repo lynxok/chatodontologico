@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Notification, screen, nativeImage } from 'electron';
+import { app, BrowserWindow, ipcMain, Notification, screen, nativeImage, Tray, Menu } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { autoUpdater } from 'electron-updater';
@@ -13,6 +13,52 @@ const distPath = app.isPackaged
   : path.join(__dirname, '../dist');
 
 let win: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
+
+function createTray() {
+  const iconPath = app.isPackaged
+    ? path.join(distPath, 'icon.png')
+    : path.join(__dirname, '../public/logo ls.jpeg'); // Fallback de logo existente
+
+  // Usar nativeImage para redimensionar el icono para el tray de forma óptima
+  const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+  tray = new Tray(trayIcon);
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Mostrar LS Chat',
+      click: () => {
+        if (win) {
+          win.show();
+          win.focus();
+        }
+      }
+    },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+
+  tray.setToolTip('LS Odontología - Chat');
+  tray.setContextMenu(contextMenu);
+
+  tray.on('double-click', () => {
+    if (win) {
+      if (win.isVisible()) {
+        win.hide();
+      } else {
+        win.show();
+        win.focus();
+      }
+    }
+  });
+}
 
 function createWindow() {
   const preloadPath = path.join(__dirname, 'preload.js');
@@ -38,6 +84,13 @@ function createWindow() {
   } else {
     win.loadFile(path.join(distPath, 'index.html'));
   }
+
+  win.on('close', (e) => {
+    if (!isQuitting) {
+      e.preventDefault();
+      win?.hide();
+    }
+  });
 
   win.on('closed', () => { win = null; });
   win.on('focus', () => { win?.flashFrame(false); });
@@ -170,7 +223,10 @@ autoUpdater.on('error', (err) => {
 });
 
 app.whenReady().then(() => {
+  createTray();
   createWindow();
 });
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => {
+  // No cerramos la app al cerrar las ventanas para permitir que siga ejecutándose en el System Tray
+});
 app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

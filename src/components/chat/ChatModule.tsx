@@ -7,9 +7,10 @@ import { notifyNewMessage } from '../../lib/notifications';
 interface ChatModuleProps {
   currentUser: any;
   onlineIds: string[]; // Cambiado de Set a Array para coincidir con App.tsx
+  onlineStates?: Record<string, any>;
 }
 
-export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds }) => {
+export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds, onlineStates = {} }) => {
   const [selectedTarget, setSelectedTarget] = useState<any | 'broadcast'>(
     currentUser?.role === 'secretary' ? 'broadcast' : null
   );
@@ -55,6 +56,7 @@ export const ChatModule: React.FC<ChatModuleProps> = ({ currentUser, onlineIds }
         onSelectTarget={setSelectedTarget} // Nombre corregido para coincidir con ChatSidebar.tsx
         selectedTarget={selectedTarget}     // Nombre corregido
         onlineIds={onlineIds}
+        onlineStates={onlineStates}
       />
 
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>

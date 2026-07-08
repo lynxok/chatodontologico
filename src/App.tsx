@@ -33,8 +33,13 @@ function App() {
   const [view, setView] = useState<'chat' | 'admin'>('chat');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [onlineIds, setOnlineIds] = useState<string[]>([]);
+  const [onlineStates, setOnlineStates] = useState<Record<string, any>>({});
+  const [boxState, setBoxState] = useState<'available' | 'busy' | 'urgent'>('available');
   const [version, setVersion] = useState('');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  
+  // Guardar una referencia al canal de presencia para poder hacer track al cambiar el estado
+  const presenceChannelRef = useRef<any>(null);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -69,15 +74,28 @@ function App() {
         presence: { key: user.id } 
       } 
     });
+    presenceChannelRef.current = channel;
 
     const sync = () => {
       const state = channel.presenceState();
+      
+      // 1. Extraer los IDs únicos conectados para onlineIds
       const ids = Object.values(state)
         .flat()
         .map((p: any) => [p.id, p.username])
         .flat()
         .filter(Boolean);
       setOnlineIds([...new Set(ids)]);
+
+      // 2. Extraer el objeto de presencia completo por cada usuario
+      const statesMap: Record<string, any> = {};
+      Object.values(state)
+        .flat()
+        .forEach((p: any) => {
+          if (p.id) statesMap[p.id] = p;
+          if (p.username) statesMap[p.username] = p;
+        });
+      setOnlineStates(statesMap);
     };
 
     channel
@@ -90,6 +108,7 @@ function App() {
             id: user.id, 
             username: user.username, 
             display_name: user.display_name,
+            box_state: boxState,
             online_at: new Date().toISOString()
           });
         }
@@ -102,6 +121,7 @@ function App() {
           id: user.id, 
           username: user.username, 
           display_name: user.display_name,
+          box_state: boxState,
           online_at: new Date().toISOString()
         });
       }
@@ -110,8 +130,9 @@ function App() {
     return () => { 
       clearInterval(interval);
       supabase.removeChannel(channel); 
+      presenceChannelRef.current = null;
     };
-  }, [user?.id, user?.username]);
+  }, [user?.id, user?.username, boxState]);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -136,6 +157,20 @@ function App() {
     if (window.electron && window.electron.openDevTools) {
       // @ts-ignore
       window.electron.openDevTools();
+    }
+  };
+
+  // Función para cambiar estado de box e inmediatamente enviar el track a Supabase
+  const handleBoxStateChange = async (newState: 'available' | 'busy' | 'urgent') => {
+    setBoxState(newState);
+    if (presenceChannelRef.current && presenceChannelRef.current.state === 'joined') {
+      await presenceChannelRef.current.track({
+        id: user.id,
+        username: user.username,
+        display_name: user.display_name,
+        box_state: newState,
+        online_at: new Date().toISOString()
+      });
     }
   };
 
@@ -204,6 +239,27 @@ function App() {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+              {/* Selector de semáforo de boxes */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(255, 255, 255, 0.05)', padding: '4px 10px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                <span style={{ 
+                  width: '8px', 
+                  height: '8px', 
+                  borderRadius: '50%', 
+                  backgroundColor: boxState === 'available' ? '#22c55e' : boxState === 'busy' ? '#eab308' : '#ef4444', 
+                  display: 'inline-block',
+                  boxShadow: boxState === 'urgent' ? '0 0 8px #ef4444' : 'none'
+                }}></span>
+                <select 
+                  value={boxState} 
+                  onChange={(e) => handleBoxStateChange(e.target.value as any)}
+                  style={{ background: 'none', border: 'none', color: 'white', fontSize: '12px', fontWeight: '700', outline: 'none', cursor: 'pointer', paddingRight: '4px' }}
+                >
+                  <option value="available" style={{ color: 'black' }}>🟢 Disponible</option>
+                  <option value="busy" style={{ color: 'black' }}>🟡 Con Paciente</option>
+                  <option value="urgent" style={{ color: 'black' }}>🔴 Urgente</option>
+                </select>
+              </div>
+
               {isAdmin && (
                 <button onClick={openDebug} title="Consola" style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: 'white', cursor: 'pointer', padding: '6px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Terminal size={14} />
@@ -229,7 +285,7 @@ function App() {
           </div>
 
           <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-            {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} onlineIds={onlineIds} />}
+            {view === 'admin' ? <AdminPanel /> : <ChatModule currentUser={user} onlineIds={onlineIds} onlineStates={onlineStates} />}
           </main>
         </div>
       </div>

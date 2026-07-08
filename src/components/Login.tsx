@@ -17,6 +17,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [version, setVersion] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const fetchVersion = async () => {
@@ -52,6 +53,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setErrorMsg('');
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -60,6 +62,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
       });
 
       if (error) {
+        setErrorMsg('Error de acceso: ' + error.message);
         toast.error('Error de acceso: ' + error.message);
       } else if (data.user) {
         const { data: profile, error: profileError } = await supabase
@@ -69,6 +72,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           .single();
 
         if (profileError) {
+          setErrorMsg('Error al cargar el perfil de usuario.');
           toast.error('Error al cargar perfil');
         } else {
           toast.success('Bienvenido de nuevo');
@@ -76,6 +80,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
       }
     } catch (err) {
+      setErrorMsg('Ocurrió un error inesperado al iniciar sesión.');
       toast.error('Ocurrió un error inesperado');
     } finally {
       setIsLoading(false);
@@ -122,6 +127,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <h1 style={{ fontSize: '30px', fontWeight: '900', color: '#1A3A3A', margin: '0' }}>LS <span style={{ color: '#0ABAB5' }}>Chat</span></h1>
           <p style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '2px', color: '#4A5568', opacity: '0.6', marginTop: '8px' }}>Sistema de Comunicación Interna</p>
         </div>
+
+        {errorMsg && (
+          <div style={{
+            padding: '12px 15px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fee2e2',
+            borderRadius: '12px',
+            color: '#ef4444',
+            fontSize: '13px',
+            fontWeight: '600',
+            textAlign: 'center',
+            marginBottom: '20px'
+          }}>
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleLogin} style={{ display: 'grid', gap: '22px' }}>
           <div style={{ display: 'grid', gap: '8px' }}>
